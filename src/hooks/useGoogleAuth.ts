@@ -43,13 +43,16 @@ export function useGoogleAuth() {
     flow: 'implicit',
     scope: Object.values(SCOPES).join(' '),
   });
-  // TODO: implement sign-out
-  // TODO: handle token expiry / refresh
+  const logout = () => {
+    setAuthState({ accessToken: null, isSignedIn: false, expiresAt: null });
+    setAuthError(null);
+  };
 
   return {
     ...authState,
     authError,
     login,
+    logout,
     scopes: SCOPES,
   }
 }
