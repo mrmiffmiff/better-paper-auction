@@ -40,6 +40,10 @@ describe('appReducer', () => {
     it('LOGOUT → login', () => {
       expect(appReducer(readyState, { type: 'LOGOUT' })).toEqual({ screen: 'login' })
     })
+
+    it('PICK_SPREADSHEET -> picker', () => {
+      expect(appReducer(readyState, { type: 'PICK_SPREADSHEET' })).toEqual({ screen: 'picker' });
+    });
   })
 
   describe('from creating', () => {
@@ -82,4 +86,16 @@ describe('appReducer', () => {
       expect(appReducer(apiErrorState, { type: 'LOGOUT' })).toEqual({ screen: 'login' })
     })
   })
+
+  describe('from picker', () => {
+    const pickerState: AppState = { screen: 'picker' };
+
+    it('cancel or fail -> ready', () => {
+      expect(appReducer(pickerState, { type: 'RETRY' })).toEqual({ screen: 'ready' });
+    });
+
+    it('SPREADSHEET_SELECTED -> spreadsheet_data_view', () => {
+      expect(appReducer(pickerState, { type: 'SPREADSHEET_SELECTED', spreadsheetId: 'sampleId', spreadsheetName: 'sampleName' })).toEqual({ screen: 'spreadsheet_data_view', spreadsheetId: 'sampleId', spreadsheetName: 'sampleName' });
+    });
+  });
 })

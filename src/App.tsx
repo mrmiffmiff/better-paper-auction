@@ -8,40 +8,42 @@ import { ReadyScreen } from '@/components/screens/ReadyScreen'
 import { CreatingScreen } from '@/components/screens/CreatingScreen'
 import { ApiErrorScreen } from '@/components/screens/ApiErrorScreen'
 import { SuccessScreen } from '@/components/screens/SuccessScreen'
+import { PickerScreen } from './components/screens/PickerScreen'
+import { SpreadsheetViewScreen } from './components/screens/SpreadsheetViewScreen'
 
 function App() {
-  const { isSignedIn, accessToken, expiresAt, authError, login, logout } = useGoogleAuth()
-  const [state, dispatch] = useReducer(appReducer, initialAppState)
+  const { isSignedIn, accessToken, expiresAt, authError, login, logout } = useGoogleAuth();
+  const [state, dispatch] = useReducer(appReducer, initialAppState);
 
   useEffect(() => {
     initGapiClient().catch(console.error)
-  }, [])
+  }, []);
 
   useEffect(() => {
     if (isSignedIn) {
-      dispatch({ type: 'LOGGED_IN' })
+      dispatch({ type: 'LOGGED_IN' });
     } else if (authError) {
-      dispatch({ type: 'AUTH_FAILED', message: authError })
+      dispatch({ type: 'AUTH_FAILED', message: authError });
     } else {
-      dispatch({ type: 'LOGOUT' })
+      dispatch({ type: 'LOGOUT' });
     }
-  }, [isSignedIn, authError])
+  }, [isSignedIn, authError]);
 
   async function handleCreateDocument() {
     if (!accessToken || (expiresAt !== null && Date.now() > expiresAt)) {
-      login()
-      return
+      login();
+      return;
     }
 
-    gapi.client.setToken({ access_token: accessToken })
-    dispatch({ type: 'START_CREATING' })
+    gapi.client.setToken({ access_token: accessToken });
+    dispatch({ type: 'START_CREATING' });
 
     try {
-      await loadDocsApi()
+      await loadDocsApi();
       const createResp = await gapi.client.docs.documents.create({
         resource: { title: 'Sample Document' },
-      })
-      const { documentId } = createResp.result
+      });
+      const { documentId } = createResp.result;
       await gapi.client.docs.documents.batchUpdate({
         documentId: documentId!,
         resource: {
@@ -49,17 +51,17 @@ function App() {
             { insertText: { location: { index: 1 }, text: 'This is a sample document.' } },
           ],
         },
-      })
-      dispatch({ type: 'CREATION_SUCCESS' })
+      });
+      dispatch({ type: 'CREATION_SUCCESS' });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error'
-      dispatch({ type: 'CREATION_FAILED', message })
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      dispatch({ type: 'CREATION_FAILED', message });
     }
   }
 
   function handleLogout() {
-    logout()
-    dispatch({ type: 'LOGOUT' })
+    logout();
+    dispatch({ type: 'LOGOUT' });
   }
 
   return (
@@ -74,7 +76,7 @@ function App() {
         />
       )}
       {state.screen === 'ready' && (
-        <ReadyScreen onCreateDocument={handleCreateDocument} />
+        <ReadyScreen onCreateDocument={handleCreateDocument} dispatch={dispatch} />
       )}
       {state.screen === 'creating' && (
         <CreatingScreen />
@@ -92,8 +94,21 @@ function App() {
           onLogout={handleLogout}
         />
       )}
+      {state.screen === 'picker' && (
+        <PickerScreen
+          auth_state={{ accessToken: accessToken, isSignedIn: isSignedIn, expiresAt: expiresAt }}
+          dispatch={dispatch}
+        />
+      )}
+      {state.screen === 'spreadsheet_data_view' && (
+        <SpreadsheetViewScreen
+          spreadsheetId={state.spreadsheetId}
+          spreadsheetName={state.spreadsheetName}
+          onReturn={() => dispatch({ type: 'RETRY' })}
+        />
+      )}
     </main>
-  )
+  );
 }
 
-export default App
+export default App;

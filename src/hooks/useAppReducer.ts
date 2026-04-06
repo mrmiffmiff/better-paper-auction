@@ -4,7 +4,9 @@ export type AppState =
   | { screen: 'ready' }
   | { screen: 'creating' }
   | { screen: 'api_error'; message: string }
-  | { screen: 'success' };
+  | { screen: 'success' }
+  | { screen: 'picker' }
+  | { screen: 'spreadsheet_data_view'; spreadsheetId: string; spreadsheetName: string };
 
 export type AppAction =
   | { type: 'LOGGED_IN' }
@@ -14,7 +16,9 @@ export type AppAction =
   | { type: 'CREATION_SUCCESS' }
   | { type: 'CREATION_FAILED'; message: string }
   | { type: 'RETRY' }
-  | { type: 'TRY_AGAIN' };
+  | { type: 'TRY_AGAIN' }
+  | { type: 'PICK_SPREADSHEET' }
+  | { type: 'SPREADSHEET_SELECTED'; spreadsheetId: string; spreadsheetName: string };
 
 export const initialAppState: AppState = { screen: 'login' };
 
@@ -36,6 +40,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { screen: 'ready' };
     case 'LOGOUT':
       return { screen: 'login' };
+    case 'PICK_SPREADSHEET':
+      return { screen: 'picker' };
+    case 'SPREADSHEET_SELECTED':
+      return { screen: 'spreadsheet_data_view', spreadsheetId: action.spreadsheetId, spreadsheetName: action.spreadsheetName }
     default:
       return state;
   }

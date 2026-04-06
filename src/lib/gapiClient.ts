@@ -1,4 +1,4 @@
-const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY as string;
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
 
 let initialized = false;
 export async function initGapiClient(): Promise<void> {
