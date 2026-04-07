@@ -94,8 +94,8 @@ describe('appReducer', () => {
       expect(appReducer(pickerState, { type: 'RETRY' })).toEqual({ screen: 'ready' });
     });
 
-    it('SPREADSHEET_SELECTED -> spreadsheet_data_view', () => {
-      expect(appReducer(pickerState, { type: 'SPREADSHEET_SELECTED', spreadsheetId: 'sampleId', spreadsheetName: 'sampleName' })).toEqual({ screen: 'spreadsheet_data_view', spreadsheetId: 'sampleId', spreadsheetName: 'sampleName' });
+    it('SPREADSHEET_SELECTED -> spreadsheet_selected_view', () => {
+      expect(appReducer(pickerState, { type: 'SPREADSHEET_SELECTED', spreadsheetId: 'sampleId', spreadsheetName: 'sampleName' })).toEqual({ screen: 'spreadsheet_selected_view', spreadsheetId: 'sampleId', spreadsheetName: 'sampleName' });
     });
   });
 })

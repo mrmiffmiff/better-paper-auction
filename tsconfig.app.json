@@ -13,7 +13,9 @@
       "vite/client",
       "gapi",
       "gapi.client",
-      "gapi.client.docs-v1"
+      "gapi.client.docs-v1",
+      "gapi.client.sheets-v4",
+      "google.picker",
     ],
     "skipLibCheck": true,
     "baseUrl": ".",

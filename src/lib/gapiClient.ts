@@ -11,6 +11,13 @@ export async function initGapiClient(): Promise<void> {
 let docsLoaded = false;
 export async function loadDocsApi(): Promise<void> {
   if (docsLoaded) return;
-  await gapi.client.load('https://www.googleapis.com/discovery/v1/apis/docs/v1/rest');
+  await gapi.client.load('https://docs.googleapis.com/$discovery/rest?version=v1');
   docsLoaded = true;
+}
+
+let sheetsLoaded = false;
+export async function loadSheetsApi(): Promise<void> {
+  if (sheetsLoaded) return;
+  await gapi.client.load('https://sheets.googleapis.com/$discovery/rest?version=v4')
+  sheetsLoaded = true;
 }

@@ -1,3 +1,5 @@
+import type { ItemCategory } from "@/lib/basicItemData";
+
 export type AppState =
   | { screen: 'login' }
   | { screen: 'auth_error'; message: string }
@@ -6,7 +8,9 @@ export type AppState =
   | { screen: 'api_error'; message: string }
   | { screen: 'success' }
   | { screen: 'picker' }
-  | { screen: 'spreadsheet_data_view'; spreadsheetId: string; spreadsheetName: string };
+  | { screen: 'spreadsheet_selected_view'; spreadsheetId: string; spreadsheetName: string }
+  | { screen: 'loading' }
+  | { screen: 'data_view'; categories: Map<string, ItemCategory> };
 
 export type AppAction =
   | { type: 'LOGGED_IN' }
@@ -18,7 +22,10 @@ export type AppAction =
   | { type: 'RETRY' }
   | { type: 'TRY_AGAIN' }
   | { type: 'PICK_SPREADSHEET' }
-  | { type: 'SPREADSHEET_SELECTED'; spreadsheetId: string; spreadsheetName: string };
+  | { type: 'SPREADSHEET_SELECTED'; spreadsheetId: string; spreadsheetName: string }
+  | { type: 'START_LOADING' }
+  | { type: 'LOADING_FAILED'; message: string }
+  | { type: 'LOADING_SUCCESS'; categories: Map<string, ItemCategory> };
 
 export const initialAppState: AppState = { screen: 'login' };
 
@@ -43,7 +50,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'PICK_SPREADSHEET':
       return { screen: 'picker' };
     case 'SPREADSHEET_SELECTED':
-      return { screen: 'spreadsheet_data_view', spreadsheetId: action.spreadsheetId, spreadsheetName: action.spreadsheetName }
+      return { screen: 'spreadsheet_selected_view', spreadsheetId: action.spreadsheetId, spreadsheetName: action.spreadsheetName };
+    case 'START_LOADING':
+      return { screen: 'loading' };
+    case 'LOADING_FAILED':
+      return { screen: 'api_error', message: action.message };
+    case 'LOADING_SUCCESS':
+      return { screen: 'data_view', categories: action.categories };
     default:
       return state;
   }
