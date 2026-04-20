@@ -13,6 +13,7 @@ import { SpreadsheetViewScreen } from './components/screens/SpreadsheetViewScree
 import { LoadingScreen } from './components/screens/LoadingScreen'
 import { DataScreen } from './components/screens/DataScreen'
 import { parseSheetRows } from './lib/parseSheetData'
+import { createCatalogDoc } from './lib/createCatalogDoc'
 
 function App() {
   const { isSignedIn, accessToken, expiresAt, authError, login, logout } = useGoogleAuth();
@@ -52,6 +53,24 @@ function App() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       dispatch({ type: 'LOADING_FAILED', message });
+    }
+  }
+
+  async function handleCreateCatalog() {
+    if (!accessToken || (expiresAt !== null && Date.now() > expiresAt)) {
+      login();
+      return;
+    }
+
+    gapi.client.setToken({ access_token: accessToken });
+    try {
+      await loadDocsApi();
+      if (state.screen !== 'data_view') return;
+      const url = await createCatalogDoc(state.categories);
+      window.open(url, '_blank');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      dispatch({ type: 'CREATION_FAILED', message });
     }
   }
 
@@ -142,6 +161,7 @@ function App() {
         <DataScreen
           cats={state.categories}
           onLogout={handleLogout}
+          onCreateCatalog={handleCreateCatalog}
         />
       )}
     </main>

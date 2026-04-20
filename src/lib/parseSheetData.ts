@@ -25,7 +25,7 @@ export function parseSheetRows(values: string[][] | undefined): Map<string, Item
       value: isInteger(row[13]) ? Number.parseInt(row[13]) : undefined,
       date: isDate(row[6]) ? new Date(row[6]) : undefined,
     };
-    categories.get(cat)!.items.push(item);
+    categories.get(cat)?.items.push(item);
   }
   return categories;
 }

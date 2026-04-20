@@ -1,12 +1,29 @@
+import { useState } from "react";
 import type { ItemCategory } from "@/lib/basicItemData";
 import { Button } from "../ui/button";
 
 interface DataScreenProps {
     readonly cats: Map<string, ItemCategory>,
     readonly onLogout: () => void;
+    readonly onCreateCatalog: () => Promise<void>;
 }
 
-export function DataScreen({ cats, onLogout }: DataScreenProps) {
+export function DataScreen({ cats, onLogout, onCreateCatalog }: DataScreenProps) {
+    const [isCreating, setIsCreating] = useState(false);
+    const [catalogError, setCatalogError] = useState<string | null>(null);
+
+    async function handleCreateCatalog() {
+        setIsCreating(true);
+        setCatalogError(null);
+        try {
+            await onCreateCatalog();
+        } catch (err) {
+            setCatalogError(err instanceof Error ? err.message : 'Unknown error');
+        } finally {
+            setIsCreating(false);
+        }
+    }
+
     return (
         <div>
             {Array.from(cats.values()).map((category) => (
@@ -30,6 +47,10 @@ export function DataScreen({ cats, onLogout }: DataScreenProps) {
                     </table>
                 </div>
             ))}
+            <Button onClick={handleCreateCatalog} disabled={isCreating}>
+                {isCreating ? 'Creating Catalog…' : 'Create Catalog'}
+            </Button>
+            {catalogError && <p>{catalogError}</p>}
             <Button variant="outline" onClick={onLogout}>Logout</Button>
         </div>
     )
