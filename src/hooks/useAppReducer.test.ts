@@ -98,4 +98,49 @@ describe('appReducer', () => {
       expect(appReducer(pickerState, { type: 'SPREADSHEET_SELECTED', spreadsheetId: 'sampleId', spreadsheetName: 'sampleName' })).toEqual({ screen: 'spreadsheet_selected_view', spreadsheetId: 'sampleId', spreadsheetName: 'sampleName' });
     });
   });
+
+  describe('from spreadsheet_selected_view', () => {
+    const spreadsheetSelectedState: AppState = { screen: 'spreadsheet_selected_view', spreadsheetId: 'sid', spreadsheetName: 'sname' };
+
+    it('START_LOADING → loading', () => {
+      expect(appReducer(spreadsheetSelectedState, { type: 'START_LOADING' })).toEqual({ screen: 'loading' });
+    });
+
+    it('RETRY → ready', () => {
+      expect(appReducer(spreadsheetSelectedState, { type: 'RETRY' })).toEqual({ screen: 'ready' });
+    });
+
+    it('LOGOUT → login', () => {
+      expect(appReducer(spreadsheetSelectedState, { type: 'LOGOUT' })).toEqual({ screen: 'login' });
+    });
+  });
+
+  describe('from loading', () => {
+    const loadingState: AppState = { screen: 'loading' };
+    const sampleCategories = new Map([['Art', { name: 'Art', items: [] }]]);
+
+    it('LOADING_SUCCESS → data_view with categories', () => {
+      expect(appReducer(loadingState, { type: 'LOADING_SUCCESS', categories: sampleCategories })).toEqual({ screen: 'data_view', categories: sampleCategories });
+    });
+
+    it('LOADING_FAILED → api_error with message', () => {
+      expect(appReducer(loadingState, { type: 'LOADING_FAILED', message: 'Network error' })).toEqual({ screen: 'api_error', message: 'Network error' });
+    });
+
+    it('LOGOUT → login', () => {
+      expect(appReducer(loadingState, { type: 'LOGOUT' })).toEqual({ screen: 'login' });
+    });
+  });
+
+  describe('from data_view', () => {
+    const dataViewState: AppState = { screen: 'data_view', categories: new Map() };
+
+    it('LOGOUT → login', () => {
+      expect(appReducer(dataViewState, { type: 'LOGOUT' })).toEqual({ screen: 'login' });
+    });
+
+    it('RETRY → ready', () => {
+      expect(appReducer(dataViewState, { type: 'RETRY' })).toEqual({ screen: 'ready' });
+    });
+  });
 })
