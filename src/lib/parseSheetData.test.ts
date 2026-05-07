@@ -3,7 +3,7 @@ import { parseSheetRows } from './parseSheetData'
 
 function makeRow(overrides: Partial<Record<number, string>> = {}): string[] {
   const row = [
-    'ItemName', '', '42', '', 'A description', 'Details', '2025-06-01', 'CategoryA',
+    'ItemName', '', '42', 'A description', 'Details', '2025-06-01', 'CategoryA',
     'Donor Co', 'donor@example.com', 'Donor Co', '3', 'qty notes', '100', '50', '10', 'auction',
   ];
   Object.entries(overrides).forEach(([i, v]) => { row[Number(i)] = v; });
@@ -43,34 +43,39 @@ describe('parseSheetRows', () => {
     expect(item.bidSheetType).toBe('auction');
   });
 
-  it('parses value as number when row[13] is an integer string', () => {
-    const item = parseSheetRows([makeRow({ 13: '250' })]).get('CategoryA')!.items[0];
+  it('parses value as number when row[12] is an integer string', () => {
+    const item = parseSheetRows([makeRow({ 12: '250' })]).get('CategoryA')!.items[0];
     expect(item.value).toBe(250);
   });
 
-  it('leaves value undefined when row[13] is not an integer', () => {
-    const item = parseSheetRows([makeRow({ 13: 'N/A' })]).get('CategoryA')!.items[0];
+  it('leaves value undefined when row[12] is not an integer', () => {
+    const item = parseSheetRows([makeRow({ 12: 'N/A' })]).get('CategoryA')!.items[0];
     expect(item.value).toBeUndefined();
   });
 
-  it('leaves value undefined when row[13] is empty string', () => {
-    const item = parseSheetRows([makeRow({ 13: '' })]).get('CategoryA')!.items[0];
+  it('leaves value undefined when row[12] is empty string', () => {
+    const item = parseSheetRows([makeRow({ 12: '' })]).get('CategoryA')!.items[0];
     expect(item.value).toBeUndefined();
   });
 
-  it('parses date when row[6] is a valid date string', () => {
-    const item = parseSheetRows([makeRow({ 6: '2025-06-01' })]).get('CategoryA')!.items[0];
+  it('parses date when row[5] is a valid date string', () => {
+    const item = parseSheetRows([makeRow({ 5: '2025-06-01' })]).get('CategoryA')!.items[0];
     expect(item.date).toBeInstanceOf(Date);
-    expect(isNaN(item.date!.getTime())).toBe(false);
+    expect(Number.isNaN((item.date as Date).getTime())).toBe(false);
   });
 
-  it('leaves date undefined when row[6] is not a valid date', () => {
-    const item = parseSheetRows([makeRow({ 6: 'not-a-date' })]).get('CategoryA')!.items[0];
-    expect(item.date).toBeUndefined();
+  it('keeps date as string when row[5] is a non-empty, non-parseable string', () => {
+    const item = parseSheetRows([makeRow({ 5: 'Spring 2025' })]).get('CategoryA')!.items[0];
+    expect(item.date).toBe('Spring 2025');
   });
 
-  it('leaves date undefined when row[6] is empty string', () => {
-    const item = parseSheetRows([makeRow({ 6: '' })]).get('CategoryA')!.items[0];
+  it('keeps date as string when row[5] is a non-empty, non-parseable string (e.g. not-a-date)', () => {
+    const item = parseSheetRows([makeRow({ 5: 'not-a-date' })]).get('CategoryA')!.items[0];
+    expect(item.date).toBe('not-a-date');
+  });
+
+  it('leaves date undefined when row[5] is empty string', () => {
+    const item = parseSheetRows([makeRow({ 5: '' })]).get('CategoryA')!.items[0];
     expect(item.date).toBeUndefined();
   });
 
@@ -81,7 +86,7 @@ describe('parseSheetRows', () => {
   });
 
   it('creates separate entries for different categories', () => {
-    const result = parseSheetRows([makeRow({ 7: 'Art' }), makeRow({ 7: 'Experiences' })]);
+    const result = parseSheetRows([makeRow({ 6: 'Art' }), makeRow({ 6: 'Experiences' })]);
     expect(result.size).toBe(2);
     expect(result.get('Art')!.items).toHaveLength(1);
     expect(result.get('Experiences')!.items).toHaveLength(1);
@@ -89,9 +94,9 @@ describe('parseSheetRows', () => {
 
   it('preserves insertion order of categories', () => {
     const rows = [
-      makeRow({ 7: 'C' }),
-      makeRow({ 7: 'A' }),
-      makeRow({ 7: 'B' }),
+      makeRow({ 6: 'C' }),
+      makeRow({ 6: 'A' }),
+      makeRow({ 6: 'B' }),
     ];
     expect(Array.from(parseSheetRows(rows).keys())).toEqual(['C', 'A', 'B']);
   });

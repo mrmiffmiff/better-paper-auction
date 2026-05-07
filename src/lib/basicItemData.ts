@@ -12,7 +12,7 @@ interface ItemData {
     bidIncrement: number,
     bidSheetType: string,
     value?: number,
-    date?: Date,
+    date?: Date | string,
 }
 
 interface ItemCategory {

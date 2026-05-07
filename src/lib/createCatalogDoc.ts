@@ -1,14 +1,17 @@
 import type { ItemData, ItemCategory } from './basicItemData';
 
 function getAllDatedItems(cats: Map<string, ItemCategory>): ItemData[] {
-    return [...cats.values()]
-        .flatMap(c => c.items)
-        .filter(item => item.date != null)
-        .sort((a, b) => a.date!.getTime() - b.date!.getTime());
+    const all = [...cats.values()].flatMap(c => c.items).filter(item => item.date != null);
+    const dated = all
+        .filter(item => item.date instanceof Date)
+        .sort((a, b) => (a.date as Date).getTime() - (b.date as Date).getTime());
+    const stringDated = all.filter(item => typeof item.date === 'string');
+    return [...dated, ...stringDated];
 }
 
-function formatItemDate(date: Date): string {
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+function formatItemDate(date: Date | string): string {
+    if (typeof date === 'string') return date;
+    return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 function extractTableInfo(doc: gapi.client.docs.Document): {
@@ -34,11 +37,15 @@ function buildCatalogContent(cats: Map<string, ItemCategory>, insertOffset = 1):
     boldRanges: Array<{ startIndex: number; endIndex: number }>;
     centeredRanges: Array<{ startIndex: number; endIndex: number }>;
     pageBreakPositions: number[];
+    categoryHeaderRanges: Array<{ startIndex: number; endIndex: number }>;
+    itemHeaderRanges: Array<{ startIndex: number; endIndex: number }>;
 } {
     let text = '';
     const boldRanges: Array<{ startIndex: number; endIndex: number }> = [];
     const centeredRanges: Array<{ startIndex: number; endIndex: number }> = [];
     const pageBreakPositions: number[] = [];
+    const categoryHeaderRanges: Array<{ startIndex: number; endIndex: number }> = [];
+    const itemHeaderRanges: Array<{ startIndex: number; endIndex: number }> = [];
 
     function addBold(segment: string) {
         const startIndex = text.length + insertOffset;
@@ -51,6 +58,7 @@ function buildCatalogContent(cats: Map<string, ItemCategory>, insertOffset = 1):
         text += segment;
         boldRanges.push({ startIndex, endIndex: text.length + insertOffset });
         centeredRanges.push({ startIndex, endIndex: text.length + insertOffset });
+        categoryHeaderRanges.push({ startIndex, endIndex: text.length + insertOffset });
     }
 
     function addNormal(segment: string) {
@@ -61,12 +69,16 @@ function buildCatalogContent(cats: Map<string, ItemCategory>, insertOffset = 1):
     categories.forEach((category, i) => {
         addCenteredBold(`${category.name}\n`);
         for (const item of category.items) {
+            const itemHeaderStart = text.length + insertOffset;
             addBold(`${item.itemNumber}. ${item.name}\n`);
+            itemHeaderRanges.push({ startIndex: itemHeaderStart, endIndex: text.length + insertOffset });
             addNormal(`${item.description}\n\n`);
-            addBold('Details: ');
-            addNormal(`${item.details}\n`);
+            if (item.details) {
+                addBold('Details: ');
+                addNormal(`${item.details}\n`);
+            }
             addBold('Starting Bid: ');
-            addNormal(`${item.minBid}\n`);
+            addNormal(`$${item.minBid}\n`);
             addBold('Thanks To');
             addNormal(`: ${item.donorDisplay}\n\n`);
         }
@@ -75,7 +87,7 @@ function buildCatalogContent(cats: Map<string, ItemCategory>, insertOffset = 1):
         }
     });
 
-    return { text, boldRanges, centeredRanges, pageBreakPositions };
+    return { text, boldRanges, centeredRanges, pageBreakPositions, categoryHeaderRanges, itemHeaderRanges };
 }
 
 export async function createCatalogDoc(cats: Map<string, ItemCategory>): Promise<string> {
@@ -150,7 +162,7 @@ export async function createCatalogDoc(cats: Map<string, ItemCategory>): Promise
         );
     }
 
-    const { text, boldRanges, centeredRanges, pageBreakPositions } = buildCatalogContent(cats, insertOffset);
+    const { text, boldRanges, centeredRanges, pageBreakPositions, categoryHeaderRanges, itemHeaderRanges } = buildCatalogContent(cats, insertOffset);
     if (!text && cellFillRequests.length === 0) return `https://docs.google.com/document/d/${documentId}/edit`;
 
     const catalogEndIndex = insertOffset + text.length;
@@ -181,6 +193,20 @@ export async function createCatalogDoc(cats: Map<string, ItemCategory>): Promise
                 range: { startIndex, endIndex },
                 paragraphStyle: { alignment: 'CENTER' },
                 fields: 'alignment',
+            },
+        })),
+        ...categoryHeaderRanges.map(({ startIndex, endIndex }) => ({
+            updateTextStyle: {
+                range: { startIndex, endIndex },
+                textStyle: { fontSize: { magnitude: 16, unit: 'PT' } },
+                fields: 'fontSize',
+            },
+        })),
+        ...itemHeaderRanges.map(({ startIndex, endIndex }) => ({
+            updateTextStyle: {
+                range: { startIndex, endIndex },
+                textStyle: { fontSize: { magnitude: 14, unit: 'PT' } },
+                fields: 'fontSize',
             },
         })),
         // Page breaks in descending order so prior insertions don't shift later positions
