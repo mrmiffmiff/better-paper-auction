@@ -3,10 +3,10 @@ import type { ItemData, ItemCategory } from './basicItemData';
 const isInteger = (s: string): boolean => !isNaN(parseInt(s, 10));
 // Require a recognizable date format so freeform text like "Spring 2025" stays as a string
 const isDate = (s: string): boolean =>
-    (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(s) ||     // ISO: 2025-06-01
-     /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(s) ||    // US short: 6/1/2025
-     /^[A-Za-z]+ \d{1,2},? \d{4}$/.test(s)) &&   // Long: June 1, 2025
-    !Number.isNaN(Date.parse(s));
+  (/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(s) ||     // ISO: 2025-06-01
+    /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(s) ||    // US short: 6/1/2025
+    /^[A-Za-z]+ \d{1,2},? \d{4}$/.test(s)) &&   // Long: June 1, 2025
+  !Number.isNaN(Date.parse(s));
 function parseDate(s: string): Date | string | undefined {
   if (s === '') return undefined;
   return isDate(s) ? new Date(s) : s;
@@ -31,7 +31,7 @@ export function parseSheetRows(values: string[][] | undefined): Map<string, Item
       minBid: Number.parseInt(row[13]),
       bidIncrement: Number.parseInt(row[14]),
       bidSheetType: row[15],
-      value: isInteger(row[12]) ? Number.parseInt(row[12]) : undefined,
+      value: isInteger(row[12]) ? Number.parseInt(row[12]) : (row[12] === "Priceless") ? "priceless" : undefined,
       date: parseDate(row[5]),
     };
     categories.get(cat)?.items.push(item);

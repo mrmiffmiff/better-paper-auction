@@ -11,7 +11,7 @@ interface ItemData {
     minBid: number,
     bidIncrement: number,
     bidSheetType: string,
-    value?: number,
+    value?: number | "priceless" | undefined,
     date?: Date | string,
 }
 

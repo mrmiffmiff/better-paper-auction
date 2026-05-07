@@ -5,7 +5,7 @@ function getAllDatedItems(cats: Map<string, ItemCategory>): ItemData[] {
     const dated = all
         .filter(item => item.date instanceof Date)
         .sort((a, b) => (a.date as Date).getTime() - (b.date as Date).getTime());
-    const stringDated = all.filter(item => typeof item.date === 'string');
+    const stringDated = all.filter(item => typeof item.date === 'string').sort((a, b) => a.itemNumber - b.itemNumber);
     return [...dated, ...stringDated];
 }
 
@@ -72,7 +72,13 @@ function buildCatalogContent(cats: Map<string, ItemCategory>, insertOffset = 1):
             const itemHeaderStart = text.length + insertOffset;
             addBold(`${item.itemNumber}. ${item.name}\n`);
             itemHeaderRanges.push({ startIndex: itemHeaderStart, endIndex: text.length + insertOffset });
-            addNormal(`${item.description}\n\n`);
+            addNormal(`${item.description} `);
+            if (item.value) {
+                addBold("Value: ");
+                if (item.value === "priceless") addNormal("Priceless");
+                else addNormal(`$${item.value}`);
+            }
+            addNormal("\n\n")
             if (item.details) {
                 addBold('Details: ');
                 addNormal(`${item.details}\n`);
@@ -80,7 +86,7 @@ function buildCatalogContent(cats: Map<string, ItemCategory>, insertOffset = 1):
             addBold('Starting Bid: ');
             addNormal(`$${item.minBid}\n`);
             addBold('Thanks To');
-            addNormal(`: ${item.donorDisplay}\n\n`);
+            addNormal(`: ${item.donorDisplay}\n\n\n\n`);
         }
         if (i < categories.length - 1) {
             pageBreakPositions.push(text.length + insertOffset);
@@ -113,7 +119,7 @@ export async function createCatalogDoc(cats: Map<string, ItemCategory>): Promise
                 requests: [{
                     insertTable: {
                         rows: datedItems.length,
-                        columns: 2,
+                        columns: 3,
                         location: { index: 1 },
                     },
                 }],
@@ -129,12 +135,22 @@ export async function createCatalogDoc(cats: Map<string, ItemCategory>): Promise
         // Process cells in reverse document order so earlier indices aren't shifted by later inserts
         cellFillRequests = [...cellStartIndices]
             .sort((a, b) => b.index - a.index)
-            .flatMap(({ row, col, index }) => [{
-                insertText: {
-                    location: { index },
-                    text: col === 0 ? datedItems[row].name : formatItemDate(datedItems[row].date!),
-                },
-            }]);
+            .flatMap(({ row, col, index }) => {
+                let textValue;
+                if (col === 0) {
+                    textValue = String(datedItems[row].itemNumber);
+                } else if (col === 1) {
+                    textValue = datedItems[row].name;
+                } else {
+                    textValue = formatItemDate(datedItems[row].date!);
+                }
+                return [{
+                    insertText: {
+                        location: { index },
+                        text: textValue,
+                    },
+                }];
+            });
 
         tableColumnRequests.push(
             {
@@ -143,7 +159,7 @@ export async function createCatalogDoc(cats: Map<string, ItemCategory>): Promise
                     columnIndices: [0],
                     tableColumnProperties: {
                         widthType: 'FIXED_WIDTH',
-                        width: { magnitude: 280, unit: 'PT' },
+                        width: { magnitude: 30, unit: 'PT' },
                     },
                     fields: 'widthType,width',
                 },
@@ -154,7 +170,18 @@ export async function createCatalogDoc(cats: Map<string, ItemCategory>): Promise
                     columnIndices: [1],
                     tableColumnProperties: {
                         widthType: 'FIXED_WIDTH',
-                        width: { magnitude: 188, unit: 'PT' },
+                        width: { magnitude: 260, unit: 'PT' },
+                    },
+                    fields: 'widthType,width',
+                },
+            },
+            {
+                updateTableColumnProperties: {
+                    tableStartLocation: { index: tableStartIndex },
+                    columnIndices: [2],
+                    tableColumnProperties: {
+                        widthType: 'FIXED_WIDTH',
+                        width: { magnitude: 168, unit: 'PT' },
                     },
                     fields: 'widthType,width',
                 },
