@@ -6,7 +6,7 @@ function makeRow(overrides: Partial<Record<number, string>> = {}): string[] {
     'ItemName', '', '42', 'A description', 'Details', '2025-06-01', 'CategoryA',
     'Donor Co', 'donor@example.com', 'Donor Co', '3', 'qty notes', '100', '50', '10', 'auction',
   ];
-  Object.entries(overrides).forEach(([i, v]) => { row[Number(i)] = v; });
+  Object.entries(overrides).forEach(([i, v]) => { if (v !== undefined) row[Number(i)] = v; });
   return row;
 }
 

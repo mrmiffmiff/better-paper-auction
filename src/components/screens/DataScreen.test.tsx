@@ -32,7 +32,7 @@ describe('DataScreen', () => {
       ['Art', makeCategory('Art')],
       ['Experiences', makeCategory('Experiences')],
     ]);
-    render(<DataScreen cats={cats} onLogout={vi.fn()} />);
+    render(<DataScreen cats={cats} onLogout={vi.fn()} onCreateCatalog={vi.fn().mockResolvedValue(undefined)} />);
     expect(screen.getByRole('heading', { name: 'Art' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Experiences' })).toBeInTheDocument();
   });
@@ -40,7 +40,7 @@ describe('DataScreen', () => {
   it('renders item name and description in a table row', () => {
     const item = makeItem({ name: 'Pottery Bowl', description: 'Hand-thrown ceramic' });
     const cats = new Map([['Art', makeCategory('Art', [item])]]);
-    render(<DataScreen cats={cats} onLogout={vi.fn()} />);
+    render(<DataScreen cats={cats} onLogout={vi.fn()} onCreateCatalog={vi.fn().mockResolvedValue(undefined)} />);
     expect(screen.getByText('Pottery Bowl')).toBeInTheDocument();
     expect(screen.getByText('Hand-thrown ceramic')).toBeInTheDocument();
   });
@@ -52,7 +52,7 @@ describe('DataScreen', () => {
       makeItem({ itemNumber: 3, name: 'Item Three' }),
     ];
     const cats = new Map([['Art', makeCategory('Art', items)]]);
-    render(<DataScreen cats={cats} onLogout={vi.fn()} />);
+    render(<DataScreen cats={cats} onLogout={vi.fn()} onCreateCatalog={vi.fn().mockResolvedValue(undefined)} />);
     expect(screen.getByText('Item One')).toBeInTheDocument();
     expect(screen.getByText('Item Two')).toBeInTheDocument();
     expect(screen.getByText('Item Three')).toBeInTheDocument();
@@ -65,7 +65,7 @@ describe('DataScreen', () => {
       ['Art', makeCategory('Art', [artItem])],
       ['Experiences', makeCategory('Experiences', [expItem])],
     ]);
-    render(<DataScreen cats={cats} onLogout={vi.fn()} />);
+    render(<DataScreen cats={cats} onLogout={vi.fn()} onCreateCatalog={vi.fn().mockResolvedValue(undefined)} />);
 
     const artSection = screen.getByRole('heading', { name: 'Art' }).closest('div')!;
     const expSection = screen.getByRole('heading', { name: 'Experiences' }).closest('div')!;
@@ -77,14 +77,14 @@ describe('DataScreen', () => {
   });
 
   it('renders no category headings when categories map is empty', () => {
-    render(<DataScreen cats={new Map()} onLogout={vi.fn()} />);
+    render(<DataScreen cats={new Map()} onLogout={vi.fn()} onCreateCatalog={vi.fn().mockResolvedValue(undefined)} />);
     expect(screen.queryAllByRole('heading')).toHaveLength(0);
     expect(screen.getByRole('button', { name: /logout/i })).toBeInTheDocument();
   });
 
   it('calls onLogout when the Logout button is clicked', async () => {
     const onLogout = vi.fn();
-    render(<DataScreen cats={new Map()} onLogout={onLogout} />);
+    render(<DataScreen cats={new Map()} onLogout={onLogout} onCreateCatalog={vi.fn().mockResolvedValue(undefined)} />);
     await userEvent.click(screen.getByRole('button', { name: /logout/i }));
     expect(onLogout).toHaveBeenCalledOnce();
   });

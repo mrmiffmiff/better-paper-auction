@@ -25,7 +25,7 @@ export function PickerScreen({ auth_state, dispatch }: PickerScreenProps) {
             onOauthError={handleCancel}
             onPicked={(e) => {
                 if (e.detail) {
-                    if (e.detail.docs.length > 1) {
+                    if ((e.detail.docs?.length ?? 0) > 1) {
                         handleCancel();
                     }
                     const doc = e.detail.docs?.[0];
@@ -33,7 +33,7 @@ export function PickerScreen({ auth_state, dispatch }: PickerScreenProps) {
                         dispatch({
                             type: 'SPREADSHEET_SELECTED',
                             spreadsheetId: doc.id,
-                            spreadsheetName: doc.name
+                            spreadsheetName: doc.name ?? ''
                         });
                     }
                 }
