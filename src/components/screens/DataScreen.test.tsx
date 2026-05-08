@@ -22,8 +22,8 @@ function makeItem(overrides?: Partial<ItemData>): ItemData {
   };
 }
 
-function makeCategory(name: string, items: ItemData[] = []): ItemCategory {
-  return { name, items };
+function makeCategory(name: string, items: ItemData[] = [], id = 0): ItemCategory {
+  return { name, items, id };
 }
 
 describe('DataScreen', () => {

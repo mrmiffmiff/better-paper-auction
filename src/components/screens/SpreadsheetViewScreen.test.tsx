@@ -7,7 +7,7 @@ function renderScreen(overrides?: {
   spreadsheetId?: string;
   spreadsheetName?: string;
   onReturn?: () => void;
-  onLoad?: (sheetId: string, worksheetName: string, lastRow: number) => Promise<void>;
+  onLoad?: (sheetId: string, worksheetName: string, lastRow: number, categoryTabName: string, categoryNameCol: string, categoryIdCol: string) => Promise<void>;
 }) {
   const mocks = {
     onReturn: vi.fn(),
@@ -44,7 +44,7 @@ describe('SpreadsheetViewScreen', () => {
   it('calls onLoad with correct defaults when Load Data is clicked', async () => {
     const { onLoad } = renderScreen();
     await userEvent.click(screen.getByRole('button', { name: /Load Data/i }));
-    expect(onLoad).toHaveBeenCalledWith('sheet-id-123', 'Events', 2);
+    expect(onLoad).toHaveBeenCalledWith('sheet-id-123', 'Events', 2, 'Categories', 'A', 'B');
   });
 
   it('calls onLoad with updated worksheetName after editing', async () => {
@@ -53,7 +53,7 @@ describe('SpreadsheetViewScreen', () => {
     await userEvent.clear(input);
     await userEvent.type(input, 'Donors');
     await userEvent.click(screen.getByRole('button', { name: /Load Data/i }));
-    expect(onLoad).toHaveBeenCalledWith('sheet-id-123', 'Donors', 2);
+    expect(onLoad).toHaveBeenCalledWith('sheet-id-123', 'Donors', 2, 'Categories', 'A', 'B');
   });
 
   it('calls onLoad with updated lastRow after editing', async () => {
@@ -62,7 +62,7 @@ describe('SpreadsheetViewScreen', () => {
     await userEvent.clear(input);
     await userEvent.type(input, '50');
     await userEvent.click(screen.getByRole('button', { name: /Load Data/i }));
-    expect(onLoad).toHaveBeenCalledWith('sheet-id-123', 'Events', 50);
+    expect(onLoad).toHaveBeenCalledWith('sheet-id-123', 'Events', 50, 'Categories', 'A', 'B');
   });
 
   it('calls onReturn when Return button is clicked', async () => {

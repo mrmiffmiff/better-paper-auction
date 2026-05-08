@@ -117,7 +117,7 @@ describe('appReducer', () => {
 
   describe('from loading', () => {
     const loadingState: AppState = { screen: 'loading' };
-    const sampleCategories = new Map([['Art', { name: 'Art', items: [] }]]);
+    const sampleCategories = new Map([['Art', { name: 'Art', items: [], id: 0 }]]);
 
     it('LOADING_SUCCESS → data_view with categories', () => {
       expect(appReducer(loadingState, { type: 'LOADING_SUCCESS', categories: sampleCategories })).toEqual({ screen: 'data_view', categories: sampleCategories });

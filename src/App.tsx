@@ -12,7 +12,7 @@ import { PickerScreen } from './components/screens/PickerScreen'
 import { SpreadsheetViewScreen } from './components/screens/SpreadsheetViewScreen'
 import { LoadingScreen } from './components/screens/LoadingScreen'
 import { DataScreen } from './components/screens/DataScreen'
-import { parseSheetRows } from './lib/parseSheetData'
+import { parseSheetRows, parseCategoryIds, colLetterToIndex } from './lib/parseSheetData'
 import { createCatalogDoc } from './lib/createCatalogDoc'
 
 function App() {
@@ -33,7 +33,7 @@ function App() {
     }
   }, [isSignedIn, authError]);
 
-  async function handleLoadEventData(sheetId: string, worksheetName: string, lastRow: number) {
+  async function handleLoadEventData(sheetId: string, worksheetName: string, lastRow: number, categoryTabName: string, categoryNameCol: string, categoryIdCol: string) {
     if (!accessToken || (expiresAt !== null && Date.now() > expiresAt)) {
       login();
       return;
@@ -48,7 +48,15 @@ function App() {
         spreadsheetId: sheetId,
         range,
       });
-      const categories = parseSheetRows(response.result.values);
+      let categoryIds: Map<string, number> | undefined;
+      if (categoryTabName) {
+        const catResponse = await gapi.client.sheets.spreadsheets.values.get({
+          spreadsheetId: sheetId,
+          range: `${categoryTabName}!A2:Z`,
+        });
+        categoryIds = parseCategoryIds(catResponse.result.values, colLetterToIndex(categoryNameCol), colLetterToIndex(categoryIdCol));
+      }
+      const categories = parseSheetRows(response.result.values, categoryIds);
       dispatch({ type: 'LOADING_SUCCESS', categories });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';

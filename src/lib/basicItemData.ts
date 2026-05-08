@@ -18,6 +18,7 @@ interface ItemData {
 interface ItemCategory {
     name: string,
     items: ItemData[],
+    id: number,
 }
 
 export type { ItemData, ItemCategory };

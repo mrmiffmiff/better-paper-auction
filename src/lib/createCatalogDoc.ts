@@ -65,7 +65,9 @@ function buildCatalogContent(cats: Map<string, ItemCategory>, insertOffset = 1):
         text += segment;
     }
 
-    const categories = [...cats.values()];
+    const categories = [...cats.values()]
+        .sort((a, b) => a.id - b.id)
+        .map(cat => ({ ...cat, items: [...cat.items].sort((a, b) => a.itemNumber - b.itemNumber) }));
     categories.forEach((category, i) => {
         addCenteredBold(`${category.name}\n`);
         for (const item of category.items) {
