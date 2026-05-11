@@ -6,11 +6,14 @@ interface DataScreenProps {
     readonly cats: Map<string, ItemCategory>,
     readonly onLogout: () => void;
     readonly onCreateCatalog: () => Promise<void>;
+    readonly onCreateBidSheets: () => Promise<void>;
 }
 
-export function DataScreen({ cats, onLogout, onCreateCatalog }: DataScreenProps) {
+export function DataScreen({ cats, onLogout, onCreateCatalog, onCreateBidSheets }: DataScreenProps) {
     const [isCreating, setIsCreating] = useState(false);
     const [catalogError, setCatalogError] = useState<string | null>(null);
+    const [isCreatingBidSheets, setIsCreatingBidSheets] = useState(false);
+    const [bidSheetsError, setBidSheetsError] = useState<string | null>(null);
 
     async function handleCreateCatalog() {
         setIsCreating(true);
@@ -21,6 +24,18 @@ export function DataScreen({ cats, onLogout, onCreateCatalog }: DataScreenProps)
             setCatalogError(err instanceof Error ? err.message : 'Unknown error');
         } finally {
             setIsCreating(false);
+        }
+    }
+
+    async function handleCreateBidSheets() {
+        setIsCreatingBidSheets(true);
+        setBidSheetsError(null);
+        try {
+            await onCreateBidSheets();
+        } catch (err) {
+            setBidSheetsError(err instanceof Error ? err.message : 'Unknown error');
+        } finally {
+            setIsCreatingBidSheets(false);
         }
     }
 
@@ -51,6 +66,10 @@ export function DataScreen({ cats, onLogout, onCreateCatalog }: DataScreenProps)
                 {isCreating ? 'Creating Catalog…' : 'Create Catalog'}
             </Button>
             {catalogError && <p>{catalogError}</p>}
+            <Button onClick={handleCreateBidSheets} disabled={isCreatingBidSheets}>
+                {isCreatingBidSheets ? 'Creating Bid Sheets…' : 'Create Bid Sheets'}
+            </Button>
+            {bidSheetsError && <p>{bidSheetsError}</p>}
             <Button variant="outline" onClick={onLogout}>Logout</Button>
         </div>
     )
