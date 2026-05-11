@@ -1,18 +1,77 @@
 import type { ItemData, ItemCategory } from './basicItemData';
 
-const BID_TABLE_ROWS = 21; // 1 header row + 20 bid rows
-const BID_TABLE_COLS = 2;
+const BID_TYPE_A_ROWS = 21; // 1 header + 20 bid rows
+const BID_TYPE_A_COLS = 2;
+const BID_TYPE_B_COLS = 4;
+const BID_TYPE_C_ROWS = 20;
 
 function formatBidAmount(amount: number): string {
     return `$${amount}`;
 }
 
-function typeACellContentLength(item: ItemData): number {
-    let len = 'Bid'.length + 'Bidder'.length;
-    for (let k = 0; k < 20; k++) {
-        len += formatBidAmount(item.minBid + k * item.bidIncrement).length;
+function typeBSubTableCount(quantity: number): number {
+    if (quantity <= 4) return 3;
+    if (quantity <= 8) return 2;
+    return 1;
+}
+
+function cellContentLengthFor(item: ItemData, subTableIndex = 0): number {
+    switch (item.bidSheetType) {
+        case 'A': {
+            let len = 'Bid'.length + 'Bidder'.length;
+            for (let k = 0; k < 20; k++) len += formatBidAmount(item.minBid + k * item.bidIncrement).length;
+            return len;
+        }
+        case 'B':
+            // Only the 4 header cells have content; body rows are blank
+            return Array.from({ length: BID_TYPE_B_COLS }, (_, c) =>
+                formatBidAmount(item.minBid + (subTableIndex * BID_TYPE_B_COLS + c) * item.bidIncrement).length
+            ).reduce((a, b) => a + b, 0);
+        case 'C': {
+            // 20 rows × quantity cols, same bid amount per row across all cols
+            let len = 0;
+            for (let r = 0; r < BID_TYPE_C_ROWS; r++)
+                len += item.quantity * formatBidAmount(item.minBid + r * item.bidIncrement).length;
+            return len;
+        }
+        default: return 0;
     }
-    return len;
+}
+
+function buildCellFillData(item: ItemData, cellStartIndices: number[][], subTableIndex = 0): Array<{ index: number; text: string }> {
+    const fills: Array<{ index: number; text: string }> = [];
+    switch (item.bidSheetType) {
+        case 'A':
+            fills.push({ index: cellStartIndices[0][0], text: 'Bid' });
+            fills.push({ index: cellStartIndices[0][1], text: 'Bidder' });
+            for (let row = 1; row < BID_TYPE_A_ROWS; row++) {
+                fills.push({ index: cellStartIndices[row][0], text: formatBidAmount(item.minBid + (row - 1) * item.bidIncrement) });
+            }
+            break;
+        case 'B':
+            for (let c = 0; c < BID_TYPE_B_COLS; c++) {
+                fills.push({ index: cellStartIndices[0][c], text: formatBidAmount(item.minBid + (subTableIndex * BID_TYPE_B_COLS + c) * item.bidIncrement) });
+            }
+            break;
+        case 'C':
+            for (let r = 0; r < BID_TYPE_C_ROWS; r++) {
+                const text = formatBidAmount(item.minBid + r * item.bidIncrement);
+                for (let c = 0; c < item.quantity; c++) {
+                    fills.push({ index: cellStartIndices[r][c], text });
+                }
+            }
+            break;
+    }
+    return fills;
+}
+
+function headerTextsFor(item: ItemData, subTableIndex = 0): string[] | null {
+    switch (item.bidSheetType) {
+        case 'A': return ['Bid', 'Bidder'];
+        case 'B': return Array.from({ length: BID_TYPE_B_COLS }, (_, c) =>
+            formatBidAmount(item.minBid + (subTableIndex * BID_TYPE_B_COLS + c) * item.bidIncrement));
+        default: return null;
+    }
 }
 
 function buildBidSheetContent(cats: Map<string, ItemCategory>, insertOffset: number): {
@@ -20,13 +79,13 @@ function buildBidSheetContent(cats: Map<string, ItemCategory>, insertOffset: num
     boldRanges: Array<{ startIndex: number; endIndex: number }>;
     headingRanges: Array<{ startIndex: number; endIndex: number }>;
     centeredRanges: Array<{ startIndex: number; endIndex: number }>;
-    tableInsertionPoints: Array<{ position: number; item: ItemData; isLast: boolean }>;
+    tableInsertionPoints: Array<{ position: number; item: ItemData; isLastItem: boolean; isLastSubTable: boolean; subTableIndex: number }>;
 } {
     let text = '';
     const boldRanges: Array<{ startIndex: number; endIndex: number }> = [];
     const headingRanges: Array<{ startIndex: number; endIndex: number }> = [];
     const centeredRanges: Array<{ startIndex: number; endIndex: number }> = [];
-    const tableInsertionPoints: Array<{ position: number; item: ItemData; isLast: boolean }> = [];
+    const tableInsertionPoints: Array<{ position: number; item: ItemData; isLastItem: boolean; isLastSubTable: boolean; subTableIndex: number }> = [];
 
     function addCentered(segment: string) {
         const startIndex = text.length + insertOffset;
@@ -46,7 +105,7 @@ function buildBidSheetContent(cats: Map<string, ItemCategory>, insertOffset: num
         const startIndex = text.length + insertOffset;
         text += segment;
         const endIndex = text.length + insertOffset;
-        boldRanges.push({ startIndex, endIndex });
+        // heading ranges handle both paragraph style (HEADING_1) and character style
         headingRanges.push({ startIndex, endIndex });
         centeredRanges.push({ startIndex, endIndex });
     }
@@ -61,7 +120,7 @@ function buildBidSheetContent(cats: Map<string, ItemCategory>, insertOffset: num
     for (const category of categories) {
         for (const item of category.items) {
             itemCount++;
-            const isLast = itemCount === totalItems;
+            const isLastItem = itemCount === totalItems;
 
             addHeadingBoldCentered(`${item.itemNumber}. ${item.name}\n`);
             addCentered(`${item.description}\n`);
@@ -74,7 +133,19 @@ function buildBidSheetContent(cats: Map<string, ItemCategory>, insertOffset: num
             }
             addCentered(`Thanks to: ${item.donorDisplay}\n`);
 
-            tableInsertionPoints.push({ position: text.length + insertOffset, item, isLast });
+            // Insert table at the \n of the Thanks line (position - 1) to avoid a blank
+            // paragraph that the Google Docs API inserts when a table is at a paragraph start.
+            const tablePosition = text.length + insertOffset - 1;
+            const subTableCount = item.bidSheetType === 'B' ? typeBSubTableCount(item.quantity) : 1;
+            for (let t = 0; t < subTableCount; t++) {
+                tableInsertionPoints.push({
+                    position: tablePosition,
+                    item,
+                    isLastItem,
+                    isLastSubTable: t === subTableCount - 1,
+                    subTableIndex: t,
+                });
+            }
         }
     }
 
@@ -97,6 +168,18 @@ function makeHeading1Requests(ranges: Array<{ startIndex: number; endIndex: numb
             range: { startIndex, endIndex },
             paragraphStyle: { namedStyleType: 'HEADING_1' },
             fields: 'namedStyleType',
+        },
+    }));
+}
+
+// Sets bold=true and clears explicit font/size overrides so the heading paragraphs
+// inherit font and size from HEADING_1 consistently across all items.
+function makeHeadingCharRequests(ranges: Array<{ startIndex: number; endIndex: number }>): object[] {
+    return ranges.map(({ startIndex, endIndex }) => ({
+        updateTextStyle: {
+            range: { startIndex, endIndex },
+            textStyle: { bold: true },
+            fields: 'bold,fontSize,weightedFontFamily',
         },
     }));
 }
@@ -142,6 +225,7 @@ export async function createBidSheetDoc(cats: Map<string, ItemCategory>): Promis
                     },
                 },
                 ...makeHeading1Requests(headingRanges),
+                ...makeHeadingCharRequests(headingRanges),
                 ...makeBoldRequests(boldRanges),
                 ...makeCenteringRequests(centeredRanges),
             ],
@@ -150,23 +234,24 @@ export async function createBidSheetDoc(cats: Map<string, ItemCategory>): Promis
 
     // Phase 2: Insert bid tables in reverse document order so earlier indices aren't shifted
     const tableRequests = [...tableInsertionPoints].reverse().flatMap(point => {
-        if (point.item.bidSheetType === 'A') {
-            return [{
-                insertTable: {
-                    rows: BID_TABLE_ROWS,
-                    columns: BID_TABLE_COLS,
-                    location: { index: point.position },
-                },
-            }];
+        const { bidSheetType, quantity } = point.item;
+        if (bidSheetType === 'A') {
+            return [{ insertTable: { rows: BID_TYPE_A_ROWS, columns: BID_TYPE_A_COLS, location: { index: point.position } } }];
         }
-        // TODO: type B table
-        // TODO: type C table
+        if (bidSheetType === 'B') {
+            return [{ insertTable: { rows: 1 + quantity, columns: BID_TYPE_B_COLS, location: { index: point.position } } }];
+        }
+        if (bidSheetType === 'C') {
+            return [{ insertTable: { rows: BID_TYPE_C_ROWS, columns: quantity, location: { index: point.position } } }];
+        }
         return [];
     });
 
     if (tableRequests.length === 0) {
         // No tables: just insert page breaks in reverse order, skipping the last item
-        const pageBreakPositions = tableInsertionPoints.filter(p => !p.isLast).map(p => p.position);
+        const pageBreakPositions = tableInsertionPoints
+            .filter(p => p.isLastSubTable && !p.isLastItem)
+            .map(p => p.position);
         if (pageBreakPositions.length > 0) {
             await gapi.client.docs.documents.batchUpdate({
                 documentId,
@@ -185,105 +270,107 @@ export async function createBidSheetDoc(cats: Map<string, ItemCategory>): Promis
         resource: { requests: tableRequests },
     });
 
-    // Phase 3: Read document to get table cell indices, then fill cells + format headers + page breaks
+    // Phase 3: Read document to get table cell indices, then fill cells + format + page breaks
     const docResp = await gapi.client.docs.documents.get({ documentId });
     const tableEls = docResp.result.body!.content!.filter(el => !!el.table);
 
-    // tableEls is in document order and maps 1:1 to type A entries in tableInsertionPoints
-    const typeAPoints = tableInsertionPoints.filter(p => p.item.bidSheetType === 'A');
-    const contentLengths = typeAPoints.map(p => typeACellContentLength(p.item));
-    // cumContent[k] = sum of contentLengths[0..k] (inclusive), used for position shift accounting
+    // allTablePoints maps 1:1 to tableEls in document order
+    const allTablePoints = tableInsertionPoints.filter(p => ['A', 'B', 'C'].includes(p.item.bidSheetType));
+    const contentLengths = allTablePoints.map(p => cellContentLengthFor(p.item, p.subTableIndex));
+    // cumContent[k] = sum of contentLengths[0..k] inclusive, used for position shift accounting
     const cumContent = contentLengths.map((_, k) =>
         contentLengths.slice(0, k + 1).reduce((a, b) => a + b, 0)
     );
 
-    // Build cell fill requests for all type A tables
-    // Sorted descending by index so earlier indices aren't shifted by later inserts
-    const cellFillData: Array<{ index: number; text: string }> = [];
-    typeAPoints.forEach((point, k) => {
-        const table = tableEls[k].table!;
-        // 2D array of paragraph start indices: cellStartIndices[row][col]
-        const cellStartIndices: number[][] = table.tableRows!.map(row =>
+    // Collect per-table data in one pass (cell start indices used for both fills and formatting)
+    const tables = allTablePoints.map((point, k) => {
+        const tableEl = tableEls[k];
+        const cellStartIndices: number[][] = tableEl.table!.tableRows!.map(row =>
             row.tableCells!.map(cell => cell.content![0].startIndex!)
         );
-
-        cellFillData.push({ index: cellStartIndices[0][0], text: 'Bid' });
-        cellFillData.push({ index: cellStartIndices[0][1], text: 'Bidder' });
-        for (let row = 1; row < BID_TABLE_ROWS; row++) {
-            const amount = point.item.minBid + (row - 1) * point.item.bidIncrement;
-            cellFillData.push({ index: cellStartIndices[row][0], text: formatBidAmount(amount) });
-        }
+        return {
+            tableEl,
+            cellStartIndices,
+            cellFills: buildCellFillData(point.item, cellStartIndices, point.subTableIndex),
+            headerTexts: headerTextsFor(point.item, point.subTableIndex),
+        };
     });
+
+    // Cell fill requests: sorted descending so earlier indices aren't shifted by later inserts
+    const cellFillData = tables.flatMap(t => t.cellFills);
     cellFillData.sort((a, b) => b.index - a.index);
     const cellFillRequests = cellFillData.map(({ index, text: cellText }) => ({
         insertText: { location: { index }, text: cellText },
     }));
 
-    // Header formatting (bold + centering for row 0 of each table)
-    // Row 1-20 fills are at higher indices than row 0 so they don't shift it.
-    // Fills from tables 0..k-1 DO shift table k, tracked via cellFillShiftBefore.
-    const headerFormatRequests: object[] = [];
+    // Formatting requests:
+    // Layer 1 — base reset to 12pt, not-bold (covers all cells in the table)
+    // Layer 2 — header override to 14pt, bold, centered (types A and B row 0 only)
+    // Layer 1 must precede layer 2 for each table so the override takes effect.
+    // Fills from tables 0..k-1 shift table k's positions; tracked via cellFillShiftBefore.
+    const formatRequests: object[] = [];
     let cellFillShiftBefore = 0;
-    typeAPoints.forEach((_, k) => {
-        const table = tableEls[k].table!;
-        const cell00Idx = table.tableRows![0].tableCells![0].content![0].startIndex!;
-        const cell01Idx = table.tableRows![0].tableCells![1].content![0].startIndex!;
+    tables.forEach(({ tableEl, cellStartIndices, headerTexts }, k) => {
+        const prevCumContent = cellFillShiftBefore;
+        const curCumContent = cumContent[k];
 
-        const bidLen = 'Bid'.length;       // 3
-        const bidderLen = 'Bidder'.length; // 6
+        // Layer 1: reset all table content to 12pt, not-bold
+        formatRequests.push({
+            updateTextStyle: {
+                range: {
+                    startIndex: tableEl.startIndex! + prevCumContent,
+                    endIndex: tableEl.endIndex! + curCumContent,
+                },
+                textStyle: { bold: false, fontSize: { magnitude: 12, unit: 'PT' } },
+                fields: 'bold,fontSize',
+            },
+        });
 
-        // (0,0) shifts only from tables before it; (0,1) additionally shifts from (0,0)'s own fill
-        const cell00Start = cell00Idx + cellFillShiftBefore;
-        const cell01Start = cell01Idx + cellFillShiftBefore + bidLen;
+        // Layer 2: header row to 14pt, bold, centered (types A and B)
+        if (headerTexts) {
+            let headerShift = 0;
+            headerTexts.forEach((headerText, c) => {
+                const cellStart = cellStartIndices[0][c] + prevCumContent + headerShift;
+                const cellEnd = cellStart + headerText.length;
+                formatRequests.push(
+                    {
+                        updateTextStyle: {
+                            range: { startIndex: cellStart, endIndex: cellEnd },
+                            textStyle: { bold: true, fontSize: { magnitude: 14, unit: 'PT' } },
+                            fields: 'bold,fontSize',
+                        },
+                    },
+                    {
+                        updateParagraphStyle: {
+                            range: { startIndex: cellStart, endIndex: cellEnd + 1 },
+                            paragraphStyle: { alignment: 'CENTER' },
+                            fields: 'alignment',
+                        },
+                    },
+                );
+                headerShift += headerText.length;
+            });
+        }
 
-        headerFormatRequests.push(
-            {
-                updateTextStyle: {
-                    range: { startIndex: cell00Start, endIndex: cell00Start + bidLen },
-                    textStyle: { bold: true },
-                    fields: 'bold',
-                },
-            },
-            {
-                updateParagraphStyle: {
-                    range: { startIndex: cell00Start, endIndex: cell00Start + bidLen + 1 },
-                    paragraphStyle: { alignment: 'CENTER' },
-                    fields: 'alignment',
-                },
-            },
-            {
-                updateTextStyle: {
-                    range: { startIndex: cell01Start, endIndex: cell01Start + bidderLen },
-                    textStyle: { bold: true },
-                    fields: 'bold',
-                },
-            },
-            {
-                updateParagraphStyle: {
-                    range: { startIndex: cell01Start, endIndex: cell01Start + bidderLen + 1 },
-                    paragraphStyle: { alignment: 'CENTER' },
-                    fields: 'alignment',
-                },
-            },
-        );
         cellFillShiftBefore += contentLengths[k];
     });
 
     // Page break requests (after all cell fills; positions account for all shifts)
-    // cumulativeShift tracks (emptyTableSize + cellContent) for all preceding type A tables
+    // cumulativeShift tracks (emptyTableSize + cellContent) for all preceding tables
     const pageBreakData: Array<{ position: number }> = [];
-    let typeAIdx = 0;
+    let tableIdx = 0;
     let cumulativeShift = 0;
     for (const point of tableInsertionPoints) {
-        if (point.isLast) break;
-        if (point.item.bidSheetType === 'A') {
-            const tableEl = tableEls[typeAIdx];
+        const hasTable = ['A', 'B', 'C'].includes(point.item.bidSheetType);
+        if (hasTable) {
+            const tableEl = tableEls[tableIdx];
             const emptyTableSize = tableEl.endIndex! - tableEl.startIndex!;
-            pageBreakData.push({ position: tableEl.endIndex! + cumContent[typeAIdx] });
-            cumulativeShift += emptyTableSize + contentLengths[typeAIdx];
-            typeAIdx++;
-        } else {
-            // B/C stub: page break at text-end position adjusted for all preceding type A tables + fills
+            if (point.isLastSubTable && !point.isLastItem) {
+                pageBreakData.push({ position: tableEl.endIndex! + cumContent[tableIdx] });
+            }
+            cumulativeShift += emptyTableSize + contentLengths[tableIdx];
+            tableIdx++;
+        } else if (!point.isLastItem) {
             pageBreakData.push({ position: point.position + cumulativeShift });
         }
     }
@@ -292,7 +379,7 @@ export async function createBidSheetDoc(cats: Map<string, ItemCategory>): Promis
         insertPageBreak: { location: { index: position } },
     }));
 
-    const allRequests = [...cellFillRequests, ...headerFormatRequests, ...pageBreakRequests];
+    const allRequests = [...cellFillRequests, ...formatRequests, ...pageBreakRequests];
     if (allRequests.length > 0) {
         await gapi.client.docs.documents.batchUpdate({
             documentId,
