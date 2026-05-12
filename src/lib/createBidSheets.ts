@@ -22,14 +22,17 @@ function cellContentLengthFor(item: ItemData, subTableIndex = 0): number {
             for (let k = 0; k < 20; k++) len += formatBidAmount(item.minBid + k * item.bidIncrement).length;
             return len;
         }
-        case 'B':
-            // Only the 4 header cells have content; body rows are blank
-            return Array.from({ length: BID_TYPE_B_COLS }, (_, c) =>
-                formatBidAmount(item.minBid + (subTableIndex * BID_TYPE_B_COLS + c) * item.bidIncrement).length
+        case 'B': {
+            const perSuffix = ` per ${item.quantityNotes}`;
+            let len = Array.from({ length: BID_TYPE_B_COLS }, (_, c) =>
+                (formatBidAmount(item.minBid + (subTableIndex * BID_TYPE_B_COLS + c) * item.bidIncrement) + perSuffix).length
             ).reduce((a, b) => a + b, 0);
+            for (let row = 1; row <= item.quantity; row++) len += `${row}.`.length;
+            return len;
+        }
         case 'C': {
-            // 20 rows × quantity cols, same bid amount per row across all cols
             let len = 0;
+            for (let c = 0; c < item.quantity; c++) len += `Bidder ${c + 1}`.length;
             for (let r = 0; r < BID_TYPE_C_ROWS; r++)
                 len += item.quantity * formatBidAmount(item.minBid + r * item.bidIncrement).length;
             return len;
@@ -48,17 +51,21 @@ function buildCellFillData(item: ItemData, cellStartIndices: number[][], subTabl
                 fills.push({ index: cellStartIndices[row][0], text: formatBidAmount(item.minBid + (row - 1) * item.bidIncrement) });
             }
             break;
-        case 'B':
-            for (let c = 0; c < BID_TYPE_B_COLS; c++) {
-                fills.push({ index: cellStartIndices[0][c], text: formatBidAmount(item.minBid + (subTableIndex * BID_TYPE_B_COLS + c) * item.bidIncrement) });
-            }
+        case 'B': {
+            const perSuffix = ` per ${item.quantityNotes}`;
+            for (let c = 0; c < BID_TYPE_B_COLS; c++)
+                fills.push({ index: cellStartIndices[0][c], text: formatBidAmount(item.minBid + (subTableIndex * BID_TYPE_B_COLS + c) * item.bidIncrement) + perSuffix });
+            for (let row = 1; row <= item.quantity; row++)
+                fills.push({ index: cellStartIndices[row][0], text: `${row}.` });
             break;
+        }
         case 'C':
+            for (let c = 0; c < item.quantity; c++)
+                fills.push({ index: cellStartIndices[0][c], text: `Bidder ${c + 1}` });
             for (let r = 0; r < BID_TYPE_C_ROWS; r++) {
                 const text = formatBidAmount(item.minBid + r * item.bidIncrement);
-                for (let c = 0; c < item.quantity; c++) {
-                    fills.push({ index: cellStartIndices[r][c], text });
-                }
+                for (let c = 0; c < item.quantity; c++)
+                    fills.push({ index: cellStartIndices[r + 1][c], text });
             }
             break;
     }
@@ -69,7 +76,8 @@ function headerTextsFor(item: ItemData, subTableIndex = 0): string[] | null {
     switch (item.bidSheetType) {
         case 'A': return ['Bid', 'Bidder'];
         case 'B': return Array.from({ length: BID_TYPE_B_COLS }, (_, c) =>
-            formatBidAmount(item.minBid + (subTableIndex * BID_TYPE_B_COLS + c) * item.bidIncrement));
+            `${formatBidAmount(item.minBid + (subTableIndex * BID_TYPE_B_COLS + c) * item.bidIncrement)} per ${item.quantityNotes}`);
+        case 'C': return Array.from({ length: item.quantity }, (_, c) => `Bidder ${c + 1}`);
         default: return null;
     }
 }
@@ -127,9 +135,8 @@ function buildBidSheetContent(cats: Map<string, ItemCategory>, insertOffset: num
             if (item.details) {
                 addBoldCentered(`Details: ${item.details}\n`);
             }
-            if (item.value) {
-                const valText = item.value === 'priceless' ? 'Value: Priceless\n' : `Value: $${item.value}\n`;
-                addBoldCentered(valText);
+            if (item.value && item.value !== 'priceless') {
+                addBoldCentered(`Value: $${item.value}\n`);
             }
             addCentered(`Thanks to: ${item.donorDisplay}\n`);
 
@@ -137,9 +144,19 @@ function buildBidSheetContent(cats: Map<string, ItemCategory>, insertOffset: num
             // paragraph that the Google Docs API inserts when a table is at a paragraph start.
             const tablePosition = text.length + insertOffset - 1;
             const subTableCount = item.bidSheetType === 'B' ? typeBSubTableCount(item.quantity) : 1;
+
+            // For the 2-subtable variant, add a second \n so there's an extra blank line
+            // between the two tables in the rendered document.
+            let subTable1Position = tablePosition;
+            if (subTableCount === 2) {
+                addCentered('\n');
+                subTable1Position = text.length + insertOffset - 1;
+            }
+
             for (let t = 0; t < subTableCount; t++) {
+                const pos = (subTableCount === 2 && t === 1) ? subTable1Position : tablePosition;
                 tableInsertionPoints.push({
-                    position: tablePosition,
+                    position: pos,
                     item,
                     isLastItem,
                     isLastSubTable: t === subTableCount - 1,
@@ -212,6 +229,15 @@ export async function createBidSheetDoc(cats: Map<string, ItemCategory>): Promis
         documentId,
         resource: {
             requests: [
+                {
+                    updateDocumentStyle: {
+                        documentStyle: {
+                            marginTop: { magnitude: 36, unit: 'PT' },
+                            marginBottom: { magnitude: 36, unit: 'PT' },
+                        },
+                        fields: 'marginTop,marginBottom',
+                    },
+                },
                 { insertText: { location: { index: insertOffset }, text } },
                 {
                     updateTextStyle: {
@@ -242,7 +268,7 @@ export async function createBidSheetDoc(cats: Map<string, ItemCategory>): Promis
             return [{ insertTable: { rows: 1 + quantity, columns: BID_TYPE_B_COLS, location: { index: point.position } } }];
         }
         if (bidSheetType === 'C') {
-            return [{ insertTable: { rows: BID_TYPE_C_ROWS, columns: quantity, location: { index: point.position } } }];
+            return [{ insertTable: { rows: BID_TYPE_C_ROWS + 1, columns: quantity, location: { index: point.position } } }];
         }
         return [];
     });
@@ -293,6 +319,7 @@ export async function createBidSheetDoc(cats: Map<string, ItemCategory>): Promis
             cellStartIndices,
             cellFills: buildCellFillData(point.item, cellStartIndices, point.subTableIndex),
             headerTexts: headerTextsFor(point.item, point.subTableIndex),
+            item: point.item,
         };
     });
 
@@ -310,7 +337,7 @@ export async function createBidSheetDoc(cats: Map<string, ItemCategory>): Promis
     // Fills from tables 0..k-1 shift table k's positions; tracked via cellFillShiftBefore.
     const formatRequests: object[] = [];
     let cellFillShiftBefore = 0;
-    tables.forEach(({ tableEl, cellStartIndices, headerTexts }, k) => {
+    tables.forEach(({ tableEl, cellStartIndices, headerTexts, item }, k) => {
         const prevCumContent = cellFillShiftBefore;
         const curCumContent = cumContent[k];
 
@@ -352,6 +379,34 @@ export async function createBidSheetDoc(cats: Map<string, ItemCategory>): Promis
             });
         }
 
+        if (item.bidSheetType === 'A') {
+            formatRequests.push({
+                updateTableColumnProperties: {
+                    tableStartLocation: { index: tableEl.startIndex! + prevCumContent },
+                    columnIndices: [0],
+                    tableColumnProperties: {
+                        widthType: 'FIXED_WIDTH',
+                        width: { magnitude: 108, unit: 'PT' },
+                    },
+                    fields: 'widthType,width',
+                },
+            });
+
+            let intraTableShift = 'Bid'.length + 'Bidder'.length;
+            for (let row = 1; row < BID_TYPE_A_ROWS; row++) {
+                const bidText = formatBidAmount(item.minBid + (row - 1) * item.bidIncrement);
+                const cellStart = cellStartIndices[row][0] + prevCumContent + intraTableShift;
+                formatRequests.push({
+                    updateParagraphStyle: {
+                        range: { startIndex: cellStart, endIndex: cellStart + bidText.length + 1 },
+                        paragraphStyle: { alignment: 'CENTER' },
+                        fields: 'alignment',
+                    },
+                });
+                intraTableShift += bidText.length;
+            }
+        }
+
         cellFillShiftBefore += contentLengths[k];
     });
 
@@ -366,7 +421,7 @@ export async function createBidSheetDoc(cats: Map<string, ItemCategory>): Promis
             const tableEl = tableEls[tableIdx];
             const emptyTableSize = tableEl.endIndex! - tableEl.startIndex!;
             if (point.isLastSubTable && !point.isLastItem) {
-                pageBreakData.push({ position: tableEl.endIndex! + cumContent[tableIdx] });
+                pageBreakData.push({ position: tableEl.endIndex! + cumContent[tableIdx] + 1 });
             }
             cumulativeShift += emptyTableSize + contentLengths[tableIdx];
             tableIdx++;
