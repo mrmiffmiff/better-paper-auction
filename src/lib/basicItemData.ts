@@ -21,4 +21,22 @@ interface ItemCategory {
     id: number,
 }
 
-export type { ItemData, ItemCategory };
+interface BidderData {
+    name: string,
+    email: string,
+    spouseName?: string,
+    spouseEmail?: string,
+    bids: Bid[],
+}
+
+interface Bid {
+    quantity: number,
+    winningAmount: number,
+    totalAmount: number,
+}
+
+interface ExpandedItemData extends ItemData {
+    successfulBids: Bid[],
+}
+
+export type { ItemData, ItemCategory, BidderData, Bid, ExpandedItemData };
