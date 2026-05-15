@@ -15,6 +15,7 @@ import { DataScreen } from './components/screens/DataScreen'
 import { parseSheetRows, parseCategoryIds, colLetterToIndex } from './lib/parseSheetData'
 import { createCatalogDoc } from './lib/createCatalogDoc'
 import { createBidSheetDoc } from './lib/createBidSheets'
+import { createExpandedSheet } from './lib/createExpandedSheet'
 
 function App() {
   const { isSignedIn, accessToken, expiresAt, authError, login, logout } = useGoogleAuth();
@@ -58,7 +59,7 @@ function App() {
         categoryIds = parseCategoryIds(catResponse.result.values, colLetterToIndex(categoryNameCol), colLetterToIndex(categoryIdCol));
       }
       const categories = parseSheetRows(response.result.values, categoryIds);
-      dispatch({ type: 'LOADING_SUCCESS', categories });
+      dispatch({ type: 'LOADING_SUCCESS', categories, spreadsheetId: sheetId });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       dispatch({ type: 'LOADING_FAILED', message });
@@ -94,6 +95,24 @@ function App() {
       await loadDocsApi();
       if (state.screen !== 'data_view') return;
       const url = await createBidSheetDoc(state.categories);
+      window.open(url, '_blank');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      dispatch({ type: 'CREATION_FAILED', message });
+    }
+  }
+
+  async function handleCreateExpandedSheet() {
+    if (!accessToken || (expiresAt !== null && Date.now() > expiresAt)) {
+      login();
+      return;
+    }
+
+    gapi.client.setToken({ access_token: accessToken });
+    try {
+      await loadSheetsApi();
+      if (state.screen !== 'data_view') return;
+      const url = await createExpandedSheet(state.categories, state.spreadsheetId);
       window.open(url, '_blank');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -190,6 +209,7 @@ function App() {
           onLogout={handleLogout}
           onCreateCatalog={handleCreateCatalog}
           onCreateBidSheets={handleCreateBidSheets}
+          onCreateExpandedSheet={handleCreateExpandedSheet}
         />
       )}
     </main>

@@ -10,7 +10,7 @@ export type AppState =
   | { screen: 'picker' }
   | { screen: 'spreadsheet_selected_view'; spreadsheetId: string; spreadsheetName: string }
   | { screen: 'loading' }
-  | { screen: 'data_view'; categories: Map<string, ItemCategory> };
+  | { screen: 'data_view'; categories: Map<string, ItemCategory>; spreadsheetId: string };
 
 export type AppAction =
   | { type: 'LOGGED_IN' }
@@ -25,7 +25,7 @@ export type AppAction =
   | { type: 'SPREADSHEET_SELECTED'; spreadsheetId: string; spreadsheetName: string }
   | { type: 'START_LOADING' }
   | { type: 'LOADING_FAILED'; message: string }
-  | { type: 'LOADING_SUCCESS'; categories: Map<string, ItemCategory> };
+  | { type: 'LOADING_SUCCESS'; categories: Map<string, ItemCategory>; spreadsheetId: string };
 
 export const initialAppState: AppState = { screen: 'login' };
 
@@ -56,7 +56,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'LOADING_FAILED':
       return { screen: 'api_error', message: action.message };
     case 'LOADING_SUCCESS':
-      return { screen: 'data_view', categories: action.categories };
+      return { screen: 'data_view', categories: action.categories, spreadsheetId: action.spreadsheetId };
     default:
       return state;
   }

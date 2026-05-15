@@ -7,13 +7,16 @@ interface DataScreenProps {
     readonly onLogout: () => void;
     readonly onCreateCatalog: () => Promise<void>;
     readonly onCreateBidSheets: () => Promise<void>;
+    readonly onCreateExpandedSheet: () => Promise<void>;
 }
 
-export function DataScreen({ cats, onLogout, onCreateCatalog, onCreateBidSheets }: DataScreenProps) {
+export function DataScreen({ cats, onLogout, onCreateCatalog, onCreateBidSheets, onCreateExpandedSheet }: DataScreenProps) {
     const [isCreating, setIsCreating] = useState(false);
     const [catalogError, setCatalogError] = useState<string | null>(null);
     const [isCreatingBidSheets, setIsCreatingBidSheets] = useState(false);
     const [bidSheetsError, setBidSheetsError] = useState<string | null>(null);
+    const [isCreatingExpandedSheet, setIsCreatingExpandedSheet] = useState(false);
+    const [expandedSheetError, setExpandedSheetError] = useState<string | null>(null);
 
     async function handleCreateCatalog() {
         setIsCreating(true);
@@ -36,6 +39,18 @@ export function DataScreen({ cats, onLogout, onCreateCatalog, onCreateBidSheets 
             setBidSheetsError(err instanceof Error ? err.message : 'Unknown error');
         } finally {
             setIsCreatingBidSheets(false);
+        }
+    }
+
+    async function handleCreateExpandedSheet() {
+        setIsCreatingExpandedSheet(true);
+        setExpandedSheetError(null);
+        try {
+            await onCreateExpandedSheet();
+        } catch (err) {
+            setExpandedSheetError(err instanceof Error ? err.message : 'Unknown error');
+        } finally {
+            setIsCreatingExpandedSheet(false);
         }
     }
 
@@ -70,6 +85,10 @@ export function DataScreen({ cats, onLogout, onCreateCatalog, onCreateBidSheets 
                 {isCreatingBidSheets ? 'Creating Bid Sheets…' : 'Create Bid Sheets'}
             </Button>
             {bidSheetsError && <p>{bidSheetsError}</p>}
+            <Button onClick={handleCreateExpandedSheet} disabled={isCreatingExpandedSheet}>
+                {isCreatingExpandedSheet ? 'Creating Expanded Sheet…' : 'Create Expanded Sheet'}
+            </Button>
+            {expandedSheetError && <p>{expandedSheetError}</p>}
             <Button variant="outline" onClick={onLogout}>Logout</Button>
         </div>
     )
