@@ -23,7 +23,7 @@ vi.mock('@react-oauth/google', () => ({
 // Import after mocking
 const { useGoogleAuth } = await import('./useGoogleAuth')
 
-const ALL_SCOPES = [SCOPES.sheets, SCOPES.docs, SCOPES.picker].join(' ')
+const ALL_SCOPES = [SCOPES.sheets, SCOPES.docs, SCOPES.picker, SCOPES.gmail].join(' ')
 
 function makeTokenResponse(scope: string): TokenResponse {
   return {

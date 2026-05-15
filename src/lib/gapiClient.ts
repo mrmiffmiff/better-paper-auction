@@ -21,3 +21,10 @@ export async function loadSheetsApi(): Promise<void> {
   await gapi.client.load('https://sheets.googleapis.com/$discovery/rest?version=v4')
   sheetsLoaded = true;
 }
+
+let gmailLoaded = false;
+export async function loadGmailApi(): Promise<void> {
+  if (gmailLoaded) return;
+  await gapi.client.load('https://gmail.googleapis.com/$discovery/rest?version=v1');
+  gmailLoaded = true;
+}

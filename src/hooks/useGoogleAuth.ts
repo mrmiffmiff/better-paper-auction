@@ -19,7 +19,7 @@ export function useGoogleAuth() {
       const grantedScopes = new Set(resp.scope.split(' '));
       const missingScopes = [...REQUIRED_SCOPES].filter(s => !grantedScopes.has(s));
       if (missingScopes.length > 0) {
-        setAuthError('All permissions are required. Please grant access to Sheets, Docs, and Drive.');
+        setAuthError('All permissions are required. Please grant access to Gmail, Sheets, Docs, and Drive.');
         return;
       }
       setAuthError(null);
