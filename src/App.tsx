@@ -13,9 +13,12 @@ import { SpreadsheetViewScreen } from './components/screens/SpreadsheetViewScree
 import { LoadingScreen } from './components/screens/LoadingScreen'
 import { DataScreen } from './components/screens/DataScreen'
 import { parseSheetRows, parseCategoryIds, colLetterToIndex } from './lib/parseSheetData'
+import { parseEmailSheetData } from './lib/parseEmailSheetData'
 import { createCatalogDoc } from './lib/createCatalogDoc'
 import { createBidSheetDoc } from './lib/createBidSheets'
 import { createExpandedSheet } from './lib/createExpandedSheet'
+import { EmailLoadScreen } from './components/screens/EmailLoadScreen'
+import { EmailResultsScreen } from './components/screens/EmailResultsScreen'
 
 function App() {
   const { isSignedIn, accessToken, expiresAt, authError, login, logout } = useGoogleAuth();
@@ -150,6 +153,28 @@ function App() {
     }
   }
 
+  async function handleLoadEmailData(sheetName: string, lastRow: number) {
+    if (!accessToken || (expiresAt !== null && Date.now() > expiresAt)) {
+      login();
+      return;
+    }
+
+    gapi.client.setToken({ access_token: accessToken });
+    try {
+      await loadSheetsApi();
+      if (state.screen !== 'email_load_view') return;
+      const response = await gapi.client.sheets.spreadsheets.values.get({
+        spreadsheetId: state.spreadsheetId,
+        range: `${sheetName}!A2:J${lastRow}`,
+      });
+      const { expandedItems, bidders } = parseEmailSheetData(response.result.values ?? [], state.categories);
+      dispatch({ type: 'EMAIL_LOADING_SUCCESS', expandedItems, bidders });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      dispatch({ type: 'CREATION_FAILED', message });
+    }
+  }
+
   function handleLogout() {
     logout();
     dispatch({ type: 'LOGOUT' });
@@ -210,6 +235,20 @@ function App() {
           onCreateCatalog={handleCreateCatalog}
           onCreateBidSheets={handleCreateBidSheets}
           onCreateExpandedSheet={handleCreateExpandedSheet}
+          onLoadEmailData={() => dispatch({ type: 'GO_TO_EMAIL_LOAD' })}
+        />
+      )}
+      {state.screen === 'email_load_view' && (
+        <EmailLoadScreen
+          onLoad={handleLoadEmailData}
+          onBack={() => dispatch({ type: 'BACK_FROM_EMAIL_LOAD' })}
+        />
+      )}
+      {state.screen === 'email_data_view' && (
+        <EmailResultsScreen
+          expandedItems={state.expandedItems}
+          bidders={state.bidders}
+          onBack={() => dispatch({ type: 'BACK_FROM_EMAIL_RESULTS' })}
         />
       )}
     </main>

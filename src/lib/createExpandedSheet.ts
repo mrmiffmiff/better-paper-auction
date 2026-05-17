@@ -10,6 +10,7 @@ const HEADERS = [
     'Total FMV',
     'Bidder Email',
     'Spouse Name',
+    'Spouse Email',
     'Event Date',
     'Donor Name',
     'Donor Email',

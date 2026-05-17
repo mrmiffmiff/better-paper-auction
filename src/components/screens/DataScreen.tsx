@@ -8,9 +8,10 @@ interface DataScreenProps {
     readonly onCreateCatalog: () => Promise<void>;
     readonly onCreateBidSheets: () => Promise<void>;
     readonly onCreateExpandedSheet: () => Promise<void>;
+    readonly onLoadEmailData: () => void;
 }
 
-export function DataScreen({ cats, onLogout, onCreateCatalog, onCreateBidSheets, onCreateExpandedSheet }: DataScreenProps) {
+export function DataScreen({ cats, onLogout, onCreateCatalog, onCreateBidSheets, onCreateExpandedSheet, onLoadEmailData }: DataScreenProps) {
     const [isCreating, setIsCreating] = useState(false);
     const [catalogError, setCatalogError] = useState<string | null>(null);
     const [isCreatingBidSheets, setIsCreatingBidSheets] = useState(false);
@@ -89,6 +90,7 @@ export function DataScreen({ cats, onLogout, onCreateCatalog, onCreateBidSheets,
                 {isCreatingExpandedSheet ? 'Creating Expanded Sheet…' : 'Create Expanded Sheet'}
             </Button>
             {expandedSheetError && <p>{expandedSheetError}</p>}
+            <Button onClick={onLoadEmailData}>Load Data for Emails</Button>
             <Button variant="outline" onClick={onLogout}>Logout</Button>
         </div>
     )

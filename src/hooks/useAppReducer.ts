@@ -1,4 +1,4 @@
-import type { ItemCategory } from "@/lib/basicItemData";
+import type { ItemCategory, ExpandedItemData, BidderData } from "@/lib/basicItemData";
 
 export type AppState =
   | { screen: 'login' }
@@ -10,7 +10,9 @@ export type AppState =
   | { screen: 'picker' }
   | { screen: 'spreadsheet_selected_view'; spreadsheetId: string; spreadsheetName: string }
   | { screen: 'loading' }
-  | { screen: 'data_view'; categories: Map<string, ItemCategory>; spreadsheetId: string };
+  | { screen: 'data_view'; categories: Map<string, ItemCategory>; spreadsheetId: string }
+  | { screen: 'email_load_view'; categories: Map<string, ItemCategory>; spreadsheetId: string }
+  | { screen: 'email_data_view'; expandedItems: Map<number, ExpandedItemData>; bidders: Map<string, BidderData>; categories: Map<string, ItemCategory>; spreadsheetId: string };
 
 export type AppAction =
   | { type: 'LOGGED_IN' }
@@ -25,7 +27,11 @@ export type AppAction =
   | { type: 'SPREADSHEET_SELECTED'; spreadsheetId: string; spreadsheetName: string }
   | { type: 'START_LOADING' }
   | { type: 'LOADING_FAILED'; message: string }
-  | { type: 'LOADING_SUCCESS'; categories: Map<string, ItemCategory>; spreadsheetId: string };
+  | { type: 'LOADING_SUCCESS'; categories: Map<string, ItemCategory>; spreadsheetId: string }
+  | { type: 'GO_TO_EMAIL_LOAD' }
+  | { type: 'BACK_FROM_EMAIL_LOAD' }
+  | { type: 'EMAIL_LOADING_SUCCESS'; expandedItems: Map<number, ExpandedItemData>; bidders: Map<string, BidderData> }
+  | { type: 'BACK_FROM_EMAIL_RESULTS' };
 
 export const initialAppState: AppState = { screen: 'login' };
 
@@ -57,6 +63,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { screen: 'api_error', message: action.message };
     case 'LOADING_SUCCESS':
       return { screen: 'data_view', categories: action.categories, spreadsheetId: action.spreadsheetId };
+    case 'GO_TO_EMAIL_LOAD':
+      if (state.screen !== 'data_view') return state;
+      return { screen: 'email_load_view', categories: state.categories, spreadsheetId: state.spreadsheetId };
+    case 'BACK_FROM_EMAIL_LOAD':
+      if (state.screen !== 'email_load_view') return state;
+      return { screen: 'data_view', categories: state.categories, spreadsheetId: state.spreadsheetId };
+    case 'EMAIL_LOADING_SUCCESS':
+      if (state.screen !== 'email_load_view') return state;
+      return { screen: 'email_data_view', expandedItems: action.expandedItems, bidders: action.bidders, categories: state.categories, spreadsheetId: state.spreadsheetId };
+    case 'BACK_FROM_EMAIL_RESULTS':
+      if (state.screen !== 'email_data_view') return state;
+      return { screen: 'data_view', categories: state.categories, spreadsheetId: state.spreadsheetId };
     default:
       return state;
   }
