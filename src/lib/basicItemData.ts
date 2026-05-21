@@ -33,6 +33,7 @@ interface Bid {
     quantity: number,
     winningAmount: number,
     totalAmount: number,
+    bidder: BidderData,
 }
 
 interface ExpandedItemData extends ItemData {

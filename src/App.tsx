@@ -247,7 +247,6 @@ function App() {
       {state.screen === 'email_data_view' && (
         <EmailResultsScreen
           expandedItems={state.expandedItems}
-          bidders={state.bidders}
           onBack={() => dispatch({ type: 'BACK_FROM_EMAIL_RESULTS' })}
         />
       )}

@@ -15,6 +15,7 @@
       "gapi.client",
       "gapi.client.docs-v1",
       "gapi.client.sheets-v4",
+      "gapi.client.gmail-v1",
       "google.picker",
     ],
     "skipLibCheck": true,
