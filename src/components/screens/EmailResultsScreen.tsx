@@ -1,6 +1,9 @@
 import { useState } from "react";
-import type { ExpandedItemData } from "@/lib/basicItemData";
+import type { BidderData, ExpandedItemData } from "@/lib/basicItemData";
 import { createDonorReportDrafts } from "@/lib/createDonorReportDrafts";
+import { createBidderReportDrafts } from "@/lib/createBidderReportDrafts";
+import { sendDrafts } from "@/lib/sendDrafts";
+import type { SendResult } from "@/lib/sendDrafts";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -15,31 +18,141 @@ import {
 
 interface EmailResultsScreenProps {
     readonly expandedItems: Map<number, ExpandedItemData>;
+    readonly bidders: Map<string, BidderData>;
     readonly onBack: () => void;
 }
+
+type Phase = 'idle' | 'drafting' | 'sending';
+
+interface DraftOnlyResult {
+    kind: 'draft-only';
+    success: number;
+    skipped: number;
+    errors: string[];
+}
+
+interface DraftAndSendResult {
+    kind: 'draft-and-send';
+    draftSuccess: number;
+    draftSkipped: number;
+    draftErrors: string[];
+    sendResult: SendResult | null;
+}
+
+type ReportResult = DraftOnlyResult | DraftAndSendResult;
 
 function winnersForItem(item: ExpandedItemData): string[] {
     return item.successfulBids.map(bid => bid.bidder.name);
 }
 
-export function EmailResultsScreen({ expandedItems, onBack }: EmailResultsScreenProps) {
+function renderSendText(sendResult: SendResult | null): string {
+    if (sendResult === null) return ' Sending…';
+    const failureText = sendResult.errors.length > 0
+        ? ` Failed to send: ${sendResult.errors.join(', ')}.`
+        : '';
+    return ` Sent ${sendResult.sent}.${failureText}`;
+}
+
+export function EmailResultsScreen({ expandedItems, bidders, onBack }: EmailResultsScreenProps) {
     const sortedItems = [...expandedItems.values()].sort((a, b) => a.itemNumber - b.itemNumber);
 
     const [ccEmails, setCcEmails] = useState('');
+    const [bccEmails, setBccEmails] = useState('');
+    const [orgName, setOrgName] = useState('');
     const [auctionName, setAuctionName] = useState('Gala Auction');
-    const [groupName, setGroupName] = useState('Auction Committee');
-    const [isDrafting, setIsDrafting] = useState(false);
-    const [draftResult, setDraftResult] = useState<{ success: number; skipped: number; errors: string[] } | null>(null);
+    const [accountingSystemName, setAccountingSystemName] = useState('');
 
-    async function handleCreateDrafts() {
-        setIsDrafting(true);
-        setDraftResult(null);
+    const [donorPhase, setDonorPhase] = useState<Phase>('idle');
+    const [donorResult, setDonorResult] = useState<ReportResult | null>(null);
+    const [bidderPhase, setBidderPhase] = useState<Phase>('idle');
+    const [bidderResult, setBidderResult] = useState<ReportResult | null>(null);
+
+    const isAnyBusy = donorPhase !== 'idle' || bidderPhase !== 'idle';
+
+    async function handleCreateDonorDrafts() {
+        setDonorPhase('drafting');
+        setDonorResult(null);
         try {
-            const result = await createDonorReportDrafts(expandedItems, { ccEmails, auctionName, groupName });
-            setDraftResult(result);
+            const result = await createDonorReportDrafts(expandedItems, { ccEmails, bccEmails, orgName, auctionName });
+            setDonorResult({ kind: 'draft-only', success: result.success, skipped: result.skipped, errors: result.errors });
         } finally {
-            setIsDrafting(false);
+            setDonorPhase('idle');
         }
+    }
+
+    async function handleCreateAndSendDonorDrafts() {
+        setDonorPhase('drafting');
+        setDonorResult(null);
+        let draftResult;
+        try {
+            draftResult = await createDonorReportDrafts(expandedItems, { ccEmails, bccEmails, orgName, auctionName });
+        } catch {
+            setDonorPhase('idle');
+            return;
+        }
+        setDonorResult({
+            kind: 'draft-and-send',
+            draftSuccess: draftResult.success,
+            draftSkipped: draftResult.skipped,
+            draftErrors: draftResult.errors,
+            sendResult: null,
+        });
+        setDonorPhase('sending');
+        try {
+            const sendResult = await sendDrafts(draftResult.drafts);
+            setDonorResult(prev => prev?.kind === 'draft-and-send' ? { ...prev, sendResult } : prev);
+        } finally {
+            setDonorPhase('idle');
+        }
+    }
+
+    async function handleCreateBidderDrafts() {
+        setBidderPhase('drafting');
+        setBidderResult(null);
+        try {
+            const result = await createBidderReportDrafts(bidders, { ccEmails, bccEmails, orgName, auctionName, accountingSystemName });
+            setBidderResult({ kind: 'draft-only', success: result.success, skipped: result.skipped, errors: result.errors });
+        } finally {
+            setBidderPhase('idle');
+        }
+    }
+
+    async function handleCreateAndSendBidderDrafts() {
+        setBidderPhase('drafting');
+        setBidderResult(null);
+        let draftResult;
+        try {
+            draftResult = await createBidderReportDrafts(bidders, { ccEmails, bccEmails, orgName, auctionName, accountingSystemName });
+        } catch {
+            setBidderPhase('idle');
+            return;
+        }
+        setBidderResult({
+            kind: 'draft-and-send',
+            draftSuccess: draftResult.success,
+            draftSkipped: draftResult.skipped,
+            draftErrors: draftResult.errors,
+            sendResult: null,
+        });
+        setBidderPhase('sending');
+        try {
+            const sendResult = await sendDrafts(draftResult.drafts);
+            setBidderResult(prev => prev?.kind === 'draft-and-send' ? { ...prev, sendResult } : prev);
+        } finally {
+            setBidderPhase('idle');
+        }
+    }
+
+    function donorPhaseLabel(defaultLabel: string) {
+        if (donorPhase === 'drafting') return 'Creating Drafts…';
+        if (donorPhase === 'sending') return 'Sending…';
+        return defaultLabel;
+    }
+
+    function bidderPhaseLabel(defaultLabel: string) {
+        if (bidderPhase === 'drafting') return 'Creating Drafts…';
+        if (bidderPhase === 'sending') return 'Sending…';
+        return defaultLabel;
     }
 
     return (
@@ -88,6 +201,23 @@ export function EmailResultsScreen({ expandedItems, onBack }: EmailResultsScreen
                     />
                 </div>
                 <div className="flex flex-col gap-1">
+                    <Label htmlFor="bcc-emails">BCC Emails (comma-separated)</Label>
+                    <Input
+                        id="bcc-emails"
+                        value={bccEmails}
+                        onChange={e => setBccEmails(e.target.value)}
+                        placeholder="bcc1@example.com, bcc2@example.com"
+                    />
+                </div>
+                <div className="flex flex-col gap-1">
+                    <Label htmlFor="org-name">Org Name</Label>
+                    <Input
+                        id="org-name"
+                        value={orgName}
+                        onChange={e => setOrgName(e.target.value)}
+                    />
+                </div>
+                <div className="flex flex-col gap-1">
                     <Label htmlFor="auction-name">Auction Name</Label>
                     <Input
                         id="auction-name"
@@ -96,24 +226,60 @@ export function EmailResultsScreen({ expandedItems, onBack }: EmailResultsScreen
                     />
                 </div>
                 <div className="flex flex-col gap-1">
-                    <Label htmlFor="group-name">Sender Name</Label>
+                    <Label htmlFor="accounting-system-name">Accounting System Name (bidder reports)</Label>
                     <Input
-                        id="group-name"
-                        value={groupName}
-                        onChange={e => setGroupName(e.target.value)}
+                        id="accounting-system-name"
+                        value={accountingSystemName}
+                        onChange={e => setAccountingSystemName(e.target.value)}
+                        placeholder="e.g. ShulCloud"
                     />
                 </div>
             </div>
-            <div className="flex gap-2">
-                <Button variant="outline" onClick={onBack}>Back to Data</Button>
-                <Button onClick={handleCreateDrafts} disabled={isDrafting}>
-                    {isDrafting ? 'Creating Drafts…' : 'Create Draft Donor Reports'}
-                </Button>
+            <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={onBack}>Back to Data</Button>
+                </div>
+                <div className="flex gap-2">
+                    <Button onClick={handleCreateDonorDrafts} disabled={isAnyBusy}>
+                        {donorPhaseLabel('Create Draft Donor Reports')}
+                    </Button>
+                    <Button onClick={handleCreateAndSendDonorDrafts} disabled={isAnyBusy}>
+                        {donorPhaseLabel('Create & Send Donor Reports')}
+                    </Button>
+                </div>
+                <div className="flex gap-2">
+                    <Button onClick={handleCreateBidderDrafts} disabled={isAnyBusy}>
+                        {bidderPhaseLabel('Create Draft Bidder Reports')}
+                    </Button>
+                    <Button onClick={handleCreateAndSendBidderDrafts} disabled={isAnyBusy}>
+                        {bidderPhaseLabel('Create & Send Bidder Reports')}
+                    </Button>
+                </div>
             </div>
-            {draftResult && (
+            {donorResult?.kind === 'draft-only' && (
                 <p className="text-sm">
-                    Created {draftResult.success} draft{draftResult.success !== 1 ? 's' : ''}, skipped {draftResult.skipped} (no donor email).
-                    {draftResult.errors.length > 0 && ` Failed: ${draftResult.errors.join(', ')}.`}
+                    Donor reports: created {donorResult.success} draft{donorResult.success !== 1 ? 's' : ''}, skipped {donorResult.skipped} (no donor email).
+                    {donorResult.errors.length > 0 && ` Failed: ${donorResult.errors.join(', ')}.`}
+                </p>
+            )}
+            {donorResult?.kind === 'draft-and-send' && (
+                <p className="text-sm">
+                    Donor reports: created {donorResult.draftSuccess} draft{donorResult.draftSuccess !== 1 ? 's' : ''}, skipped {donorResult.draftSkipped} (no donor email).
+                    {donorResult.draftErrors.length > 0 && ` Failed to draft: ${donorResult.draftErrors.join(', ')}.`}
+                    {renderSendText(donorResult.sendResult)}
+                </p>
+            )}
+            {bidderResult?.kind === 'draft-only' && (
+                <p className="text-sm">
+                    Bidder reports: created {bidderResult.success} draft{bidderResult.success !== 1 ? 's' : ''}, skipped {bidderResult.skipped} (no email or no bids).
+                    {bidderResult.errors.length > 0 && ` Failed: ${bidderResult.errors.join(', ')}.`}
+                </p>
+            )}
+            {bidderResult?.kind === 'draft-and-send' && (
+                <p className="text-sm">
+                    Bidder reports: created {bidderResult.draftSuccess} draft{bidderResult.draftSuccess !== 1 ? 's' : ''}, skipped {bidderResult.draftSkipped} (no email or no bids).
+                    {bidderResult.draftErrors.length > 0 && ` Failed to draft: ${bidderResult.draftErrors.join(', ')}.`}
+                    {renderSendText(bidderResult.sendResult)}
                 </p>
             )}
         </div>

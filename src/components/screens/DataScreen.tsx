@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 
 interface DataScreenProps {
     readonly cats: Map<string, ItemCategory>,
+    readonly warnings?: string[],
     readonly onLogout: () => void;
     readonly onCreateCatalog: () => Promise<void>;
     readonly onCreateBidSheets: () => Promise<void>;
@@ -11,7 +12,7 @@ interface DataScreenProps {
     readonly onLoadEmailData: () => void;
 }
 
-export function DataScreen({ cats, onLogout, onCreateCatalog, onCreateBidSheets, onCreateExpandedSheet, onLoadEmailData }: DataScreenProps) {
+export function DataScreen({ cats, warnings = [], onLogout, onCreateCatalog, onCreateBidSheets, onCreateExpandedSheet, onLoadEmailData }: DataScreenProps) {
     const [isCreating, setIsCreating] = useState(false);
     const [catalogError, setCatalogError] = useState<string | null>(null);
     const [isCreatingBidSheets, setIsCreatingBidSheets] = useState(false);
@@ -57,6 +58,14 @@ export function DataScreen({ cats, onLogout, onCreateCatalog, onCreateBidSheets,
 
     return (
         <div>
+            {warnings.length > 0 && (
+                <div>
+                    <strong>Import warnings:</strong>
+                    <ul>
+                        {warnings.map((w, i) => <li key={i}>{w}</li>)}
+                    </ul>
+                </div>
+            )}
             {Array.from(cats.values()).map((category) => (
                 <div key={category.name}>
                     <h2>{category.name}</h2>

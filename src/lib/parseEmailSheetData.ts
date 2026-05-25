@@ -74,7 +74,7 @@ export function parseEmailSheetData(
         }
 
         // Stage 3: Create bid
-        const bid: Bid = { quantity, winningAmount, totalAmount, bidder };
+        const bid: Bid = { quantity, winningAmount, totalAmount, bidder, item: expandedItem };
 
         // Stage 4: Add bid to both — same object reference for later reverse lookup
         bidder.bids.push(bid);

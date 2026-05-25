@@ -119,8 +119,8 @@ describe('appReducer', () => {
     const loadingState: AppState = { screen: 'loading' };
     const sampleCategories = new Map([['Art', { name: 'Art', items: [], id: 0 }]]);
 
-    it('LOADING_SUCCESS → data_view with categories', () => {
-      expect(appReducer(loadingState, { type: 'LOADING_SUCCESS', categories: sampleCategories })).toEqual({ screen: 'data_view', categories: sampleCategories });
+    it('LOADING_SUCCESS → data_view with categories and warnings', () => {
+      expect(appReducer(loadingState, { type: 'LOADING_SUCCESS', categories: sampleCategories, spreadsheetId: 'sid', warnings: [] })).toEqual({ screen: 'data_view', categories: sampleCategories, spreadsheetId: 'sid', warnings: [] });
     });
 
     it('LOADING_FAILED → api_error with message', () => {
@@ -133,7 +133,7 @@ describe('appReducer', () => {
   });
 
   describe('from data_view', () => {
-    const dataViewState: AppState = { screen: 'data_view', categories: new Map() };
+    const dataViewState: AppState = { screen: 'data_view', categories: new Map(), spreadsheetId: 'sid', warnings: [] };
 
     it('LOGOUT → login', () => {
       expect(appReducer(dataViewState, { type: 'LOGOUT' })).toEqual({ screen: 'login' });

@@ -3,14 +3,16 @@ import { loadGmailApi } from './gapiClient';
 
 interface DraftOptions {
     ccEmails: string;
+    bccEmails: string;
+    orgName: string;
     auctionName: string;
-    groupName: string;
 }
 
 interface DraftResult {
     success: number;
     skipped: number;
     errors: string[];
+    drafts: Array<{ id: string; name: string }>;
 }
 
 function escapeHtml(s: string): string {
@@ -30,9 +32,15 @@ function buildBidderTable(bids: Bid[]): string {
     const headers = ['Winner Name', 'Email', 'Quantity']
         .map(h => `<th style="${cellStyle};text-align:center;font-weight:bold">${h}</th>`)
         .join('');
-    const rows = bids.map(bid =>
-        `<tr><td style="${cellStyle}">${escapeHtml(bid.bidder.name)}</td><td style="${cellStyle}">${escapeHtml(bid.bidder.email)}</td><td style="${cellStyle}">${bid.quantity}</td></tr>`
-    ).join('');
+    const rows = bids.map(bid => {
+        const winnerName = bid.bidder.spouseName
+            ? `${bid.bidder.name} and ${bid.bidder.spouseName}`
+            : bid.bidder.name;
+        const contactEmail = bid.bidder.spouseEmail
+            ? `${bid.bidder.email}, ${bid.bidder.spouseEmail}`
+            : bid.bidder.email;
+        return `<tr><td style="${cellStyle}">${escapeHtml(winnerName)}</td><td style="${cellStyle}">${escapeHtml(contactEmail)}</td><td style="${cellStyle}">${bid.quantity}</td></tr>`;
+    }).join('');
     return `<table style="border-collapse:collapse"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
@@ -52,7 +60,7 @@ function toBase64Url(str: string): string {
 }
 
 function buildMime(item: ExpandedItemData, options: DraftOptions): string {
-    const { ccEmails, auctionName, groupName } = options;
+    const { ccEmails, bccEmails, auctionName } = options;
 
     const dateClause = item.date instanceof Date ? ` on ${escapeHtml(formatDate(item.date))}` : '';
     const sum = item.successfulBids.reduce((acc, b) => acc + b.totalAmount, 0);
@@ -60,18 +68,20 @@ function buildMime(item: ExpandedItemData, options: DraftOptions): string {
 
     const body = [
         `<p>Dear ${escapeHtml(item.donorDisplay)},</p>`,
-        `<p>Thank you so much for your generous donation of &ldquo;${escapeHtml(item.name)}&rdquo;${dateClause} to the ${escapeHtml(auctionName)} auction. We&rsquo;re pleased to share the results with you. If you have a co-host or co-hosts, please forward this email to them since the way our system works, you are the only person receiving this email.</p>`,
-        `<p>Below are the winning bidders for your item. Please be in touch with them to work out logistics. (Please note that the emails in the table below reflect the primary BJC account holder. There may be cases where the purchaser of your event is a different member of the household.)</p>`,
+        `<p>Thank you so much for your generous donation of &ldquo;${escapeHtml(item.name)}&rdquo;${dateClause} to the ${escapeHtml(auctionName)}. We&rsquo;re pleased to share the results with you.</p>`,
+        `<p>Below are the winning bidder(s) for your item. Please be in touch with them to work out logistics.</p>`,
         buildBidderTable(item.successfulBids),
         `<p>Your item raised ${escapeHtml(formattedSum)}!</p>`,
         `<p>Your support makes a meaningful difference in our community. We truly appreciate your generosity.</p>`,
         `<p>With gratitude,<br>The Auction Committee</p>`,
     ].join('\n');
 
+    const toAddresses = [item.donorEmail, ...(item.additionalDonorEmails ?? [])].join(', ');
+
     const headers = [
-        `From: ${groupName} <me>`,
-        `To: ${item.donorEmail}`,
+        `To: ${toAddresses}`,
         ...(ccEmails.trim() ? [`Cc: ${ccEmails.trim()}`] : []),
+        ...(bccEmails.trim() ? [`Bcc: ${bccEmails.trim()}`] : []),
         `Subject: ${encodeHeaderValue('Donor Report for ' + item.name)}`,
         'MIME-Version: 1.0',
         'Content-Type: text/html; charset=utf-8',
@@ -80,11 +90,12 @@ function buildMime(item: ExpandedItemData, options: DraftOptions): string {
     return `${headers}\n\n${body}`;
 }
 
-async function attemptDraft(raw: string): Promise<void> {
-    await gapi.client.gmail.users.drafts.create({
+async function attemptDraft(raw: string): Promise<string> {
+    const resp = await gapi.client.gmail.users.drafts.create({
         userId: 'me',
         resource: { message: { raw } },
     });
+    return resp.result.id!;
 }
 
 export async function createDonorReportDrafts(
@@ -98,6 +109,7 @@ export async function createDonorReportDrafts(
     let success = 0;
     let skipped = 0;
     const errors: string[] = [];
+    const drafts: Array<{ id: string; name: string }> = [];
 
     const queue: QueueItem[] = [];
     for (const item of expandedItems.values()) {
@@ -112,8 +124,9 @@ export async function createDonorReportDrafts(
     const retry1: QueueItem[] = [];
     for (const entry of queue) {
         try {
-            await attemptDraft(entry.raw);
+            const id = await attemptDraft(entry.raw);
             success++;
+            drafts.push({ id, name: entry.item.name });
         } catch {
             retry1.push(entry);
         }
@@ -124,8 +137,9 @@ export async function createDonorReportDrafts(
     for (const entry of retry1) {
         console.warn(`Retrying draft for "${entry.item.name}" (attempt 2)`);
         try {
-            await attemptDraft(entry.raw);
+            const id = await attemptDraft(entry.raw);
             success++;
+            drafts.push({ id, name: entry.item.name });
         } catch {
             retry2.push(entry);
         }
@@ -135,13 +149,14 @@ export async function createDonorReportDrafts(
     for (const entry of retry2) {
         console.warn(`Retrying draft for "${entry.item.name}" (attempt 3)`);
         try {
-            await attemptDraft(entry.raw);
+            const id = await attemptDraft(entry.raw);
             success++;
+            drafts.push({ id, name: entry.item.name });
         } catch (err) {
             console.error(`Failed to create draft for "${entry.item.name}" after 3 attempts:`, err);
             errors.push(entry.item.name);
         }
     }
 
-    return { success, skipped, errors };
+    return { success, skipped, errors, drafts };
 }

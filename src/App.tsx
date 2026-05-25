@@ -48,7 +48,7 @@ function App() {
     dispatch({ type: 'START_LOADING' });
     try {
       await loadSheetsApi();
-      const range = `${worksheetName}!A2:Q${lastRow}`;
+      const range = `${worksheetName}!A2:U${lastRow}`;
       const response = await gapi.client.sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
         range,
@@ -61,8 +61,8 @@ function App() {
         });
         categoryIds = parseCategoryIds(catResponse.result.values, colLetterToIndex(categoryNameCol), colLetterToIndex(categoryIdCol));
       }
-      const categories = parseSheetRows(response.result.values, categoryIds);
-      dispatch({ type: 'LOADING_SUCCESS', categories, spreadsheetId: sheetId });
+      const { categories, warnings } = parseSheetRows(response.result.values, categoryIds);
+      dispatch({ type: 'LOADING_SUCCESS', categories, spreadsheetId: sheetId, warnings });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       dispatch({ type: 'LOADING_FAILED', message });
@@ -231,6 +231,7 @@ function App() {
       {state.screen === 'data_view' && (
         <DataScreen
           cats={state.categories}
+          warnings={state.warnings}
           onLogout={handleLogout}
           onCreateCatalog={handleCreateCatalog}
           onCreateBidSheets={handleCreateBidSheets}
@@ -247,6 +248,7 @@ function App() {
       {state.screen === 'email_data_view' && (
         <EmailResultsScreen
           expandedItems={state.expandedItems}
+          bidders={state.bidders}
           onBack={() => dispatch({ type: 'BACK_FROM_EMAIL_RESULTS' })}
         />
       )}

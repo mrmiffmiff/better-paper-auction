@@ -13,6 +13,7 @@ interface ItemData {
     bidSheetType: string,
     value?: number | "priceless" | undefined,
     date?: Date | string,
+    additionalDonorEmails?: string[],
 }
 
 interface ItemCategory {
@@ -34,6 +35,7 @@ interface Bid {
     winningAmount: number,
     totalAmount: number,
     bidder: BidderData,
+    item: ExpandedItemData,
 }
 
 interface ExpandedItemData extends ItemData {
