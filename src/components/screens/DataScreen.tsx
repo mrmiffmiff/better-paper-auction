@@ -56,8 +56,11 @@ export function DataScreen({ cats, warnings = [], onLogout, onCreateCatalog, onC
         }
     }
 
+    const totalItems = Array.from(cats.values()).reduce((sum, cat) => sum + cat.items.length, 0);
+
     return (
         <div>
+            <p>{totalItems} item{totalItems === 1 ? '' : 's'} loaded across {cats.size} categor{cats.size === 1 ? 'y' : 'ies'}</p>
             {warnings.length > 0 && (
                 <div>
                     <strong>Import warnings:</strong>
