@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { BidderData, ExpandedItemData } from "@/lib/basicItemData";
-import { createDonorReportDrafts } from "@/lib/createDonorReportDrafts";
+import { createDonorReportDrafts, createDonorReminderDrafts } from "@/lib/createDonorReportDrafts";
 import { createBidderReportDrafts } from "@/lib/createBidderReportDrafts";
 import { sendDrafts } from "@/lib/sendDrafts";
 import type { SendResult } from "@/lib/sendDrafts";
@@ -64,10 +64,12 @@ export function EmailResultsScreen({ expandedItems, bidders, onBack }: EmailResu
 
     const [donorPhase, setDonorPhase] = useState<Phase>('idle');
     const [donorResult, setDonorResult] = useState<ReportResult | null>(null);
+    const [reminderDonorPhase, setReminderDonorPhase] = useState<Phase>('idle');
+    const [reminderDonorResult, setReminderDonorResult] = useState<DraftOnlyResult | null>(null);
     const [bidderPhase, setBidderPhase] = useState<Phase>('idle');
     const [bidderResult, setBidderResult] = useState<ReportResult | null>(null);
 
-    const isAnyBusy = donorPhase !== 'idle' || bidderPhase !== 'idle';
+    const isAnyBusy = donorPhase !== 'idle' || reminderDonorPhase !== 'idle' || bidderPhase !== 'idle';
 
     async function handleCreateDonorDrafts() {
         setDonorPhase('drafting');
@@ -103,6 +105,17 @@ export function EmailResultsScreen({ expandedItems, bidders, onBack }: EmailResu
             setDonorResult(prev => prev?.kind === 'draft-and-send' ? { ...prev, sendResult } : prev);
         } finally {
             setDonorPhase('idle');
+        }
+    }
+
+    async function handleCreateDonorReminderDrafts() {
+        setReminderDonorPhase('drafting');
+        setReminderDonorResult(null);
+        try {
+            const result = await createDonorReminderDrafts(expandedItems, { ccEmails, bccEmails, orgName, auctionName });
+            setReminderDonorResult({ kind: 'draft-only', success: result.success, skipped: result.skipped, errors: result.errors });
+        } finally {
+            setReminderDonorPhase('idle');
         }
     }
 
@@ -246,6 +259,9 @@ export function EmailResultsScreen({ expandedItems, bidders, onBack }: EmailResu
                     <Button onClick={handleCreateAndSendDonorDrafts} disabled={isAnyBusy}>
                         {donorPhaseLabel('Create & Send Donor Reports')}
                     </Button>
+                    <Button onClick={handleCreateDonorReminderDrafts} disabled={isAnyBusy}>
+                        {reminderDonorPhase === 'drafting' ? 'Creating Drafts…' : 'Create Draft Donor Reminders'}
+                    </Button>
                 </div>
                 <div className="flex gap-2">
                     <Button onClick={handleCreateBidderDrafts} disabled={isAnyBusy}>
@@ -267,6 +283,12 @@ export function EmailResultsScreen({ expandedItems, bidders, onBack }: EmailResu
                     Donor reports: created {donorResult.draftSuccess} draft{donorResult.draftSuccess !== 1 ? 's' : ''}, skipped {donorResult.draftSkipped} (no donor email).
                     {donorResult.draftErrors.length > 0 && ` Failed to draft: ${donorResult.draftErrors.join(', ')}.`}
                     {renderSendText(donorResult.sendResult)}
+                </p>
+            )}
+            {reminderDonorResult?.kind === 'draft-only' && (
+                <p className="text-sm">
+                    Donor reminders: created {reminderDonorResult.success} draft{reminderDonorResult.success === 1 ? '' : 's'}, skipped {reminderDonorResult.skipped} (no donor email).
+                    {reminderDonorResult.errors.length > 0 && ` Failed: ${reminderDonorResult.errors.join(', ')}.`}
                 </p>
             )}
             {bidderResult?.kind === 'draft-only' && (

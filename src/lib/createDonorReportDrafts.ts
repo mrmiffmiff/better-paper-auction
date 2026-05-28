@@ -1,11 +1,12 @@
 import type { ExpandedItemData, Bid } from './basicItemData';
 import { loadGmailApi } from './gapiClient';
 
-interface DraftOptions {
+export interface DraftOptions {
     ccEmails: string;
     bccEmails: string;
     orgName: string;
     auctionName: string;
+    subjectPrefix?: string;
 }
 
 interface DraftResult {
@@ -82,7 +83,7 @@ function buildMime(item: ExpandedItemData, options: DraftOptions): string {
         `To: ${toAddresses}`,
         ...(ccEmails.trim() ? [`Cc: ${ccEmails.trim()}`] : []),
         ...(bccEmails.trim() ? [`Bcc: ${bccEmails.trim()}`] : []),
-        `Subject: ${encodeHeaderValue('Donor Report for ' + item.name)}`,
+        `Subject: ${encodeHeaderValue((options.subjectPrefix ?? '') + 'Donor Report for ' + item.name)}`,
         'MIME-Version: 1.0',
         'Content-Type: text/html; charset=utf-8',
     ].join('\n');
@@ -159,4 +160,14 @@ export async function createDonorReportDrafts(
     }
 
     return { success, skipped, errors, drafts };
+}
+
+export async function createDonorReminderDrafts(
+    expandedItems: Map<number, ExpandedItemData>,
+    options: DraftOptions,
+): Promise<DraftResult> {
+    const datedItems = new Map(
+        [...expandedItems].filter(([, item]) => item.date instanceof Date)
+    );
+    return createDonorReportDrafts(datedItems, { ...options, subjectPrefix: 'REMINDER: ' });
 }
