@@ -70,7 +70,7 @@ function buildMime(item: ExpandedItemData, options: DraftOptions): string {
     const body = [
         `<p>Dear ${escapeHtml(item.donorDisplay)},</p>`,
         `<p>Thank you so much for your generous donation of &ldquo;${escapeHtml(item.name)}&rdquo;${dateClause} to the ${escapeHtml(auctionName)}. We&rsquo;re pleased to share the results with you.</p>`,
-        `<p>Below are the winning bidder(s) for your item. Please be in touch with them to work out logistics.</p>`,
+        `<p>Below are the winning bidder(s) for your item. Please be in touch with them to work out logistics. The "Quantity" column indicates how many slots were purchased (regardless of how many names appear in the "Winner Name" column).</p>`,
         buildBidderTable(item.successfulBids),
         `<p>Your item raised ${escapeHtml(formattedSum)}!</p>`,
         `<p>Your support makes a meaningful difference in our community. We truly appreciate your generosity.</p>`,
