@@ -27,37 +27,43 @@ export function EmailLoadScreen({ onLoad, onBack }: EmailLoadScreenProps) {
     }
 
     return (
-        <div className="flex flex-col">
-            <Field>
-                <FieldLabel htmlFor="email-sheet-name">Expanded Items Sheet Name</FieldLabel>
-                <Input
-                    id="email-sheet-name"
-                    type="text"
-                    value={sheetName}
-                    onChange={(e) => setSheetName(e.target.value)}
-                />
-                <FieldDescription>
-                    Name of the worksheet tab containing the expanded bid data.
-                </FieldDescription>
-            </Field>
-            <Field>
-                <FieldLabel htmlFor="email-last-row">Last Row</FieldLabel>
-                <Input
-                    id="email-last-row"
-                    type="number"
-                    min="2"
-                    value={lastRow}
-                    onChange={(e) => setLastRow(Number.parseInt(e.target.value))}
-                />
-                <FieldDescription>
-                    Last row in the sheet that contains data (not blank).
-                </FieldDescription>
-            </Field>
-            {error && <p>{error}</p>}
-            <Button onClick={handleLoad} disabled={isLoading}>
-                {isLoading ? 'Loading…' : 'Load Data'}
-            </Button>
-            <Button variant="outline" onClick={onBack}>Back</Button>
+        <div className="flex flex-col gap-6 w-full max-w-sm">
+            <div className="flex flex-col gap-4">
+                <Field>
+                    <FieldLabel htmlFor="email-sheet-name">Expanded Items Sheet Name</FieldLabel>
+                    <Input
+                        id="email-sheet-name"
+                        type="text"
+                        value={sheetName}
+                        onChange={(e) => setSheetName(e.target.value)}
+                    />
+                    <FieldDescription>
+                        Name of the worksheet tab containing expanded bid data.
+                    </FieldDescription>
+                </Field>
+                <Field>
+                    <FieldLabel htmlFor="email-last-row">Last Row</FieldLabel>
+                    <Input
+                        id="email-last-row"
+                        type="number"
+                        min="2"
+                        value={lastRow}
+                        onChange={(e) => setLastRow(Number.parseInt(e.target.value))}
+                    />
+                    <FieldDescription>
+                        Last row in the sheet that contains data.
+                    </FieldDescription>
+                </Field>
+            </div>
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
+            <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={onBack}>Back</Button>
+                <Button onClick={handleLoad} disabled={isLoading}>
+                    {isLoading ? 'Loading…' : 'Load Data'}
+                </Button>
+            </div>
         </div>
     );
 }

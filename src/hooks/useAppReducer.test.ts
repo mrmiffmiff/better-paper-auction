@@ -33,46 +33,13 @@ describe('appReducer', () => {
   describe('from ready', () => {
     const readyState: AppState = { screen: 'ready' }
 
-    it('START_CREATING → creating', () => {
-      expect(appReducer(readyState, { type: 'START_CREATING' })).toEqual({ screen: 'creating' })
-    })
-
     it('LOGOUT → login', () => {
       expect(appReducer(readyState, { type: 'LOGOUT' })).toEqual({ screen: 'login' })
     })
 
-    it('PICK_SPREADSHEET -> picker', () => {
+    it('PICK_SPREADSHEET → picker', () => {
       expect(appReducer(readyState, { type: 'PICK_SPREADSHEET' })).toEqual({ screen: 'picker' });
     });
-  })
-
-  describe('from creating', () => {
-    const creatingState: AppState = { screen: 'creating' }
-
-    it('CREATION_SUCCESS → success', () => {
-      expect(appReducer(creatingState, { type: 'CREATION_SUCCESS' })).toEqual({ screen: 'success' })
-    })
-
-    it('CREATION_FAILED → api_error with message', () => {
-      const result = appReducer(creatingState, { type: 'CREATION_FAILED', message: 'Network error' })
-      expect(result).toEqual({ screen: 'api_error', message: 'Network error' })
-    })
-
-    it('LOGOUT → login', () => {
-      expect(appReducer(creatingState, { type: 'LOGOUT' })).toEqual({ screen: 'login' })
-    })
-  })
-
-  describe('from success', () => {
-    const successState: AppState = { screen: 'success' }
-
-    it('RETRY → ready', () => {
-      expect(appReducer(successState, { type: 'RETRY' })).toEqual({ screen: 'ready' })
-    })
-
-    it('LOGOUT → login', () => {
-      expect(appReducer(successState, { type: 'LOGOUT' })).toEqual({ screen: 'login' })
-    })
   })
 
   describe('from api_error', () => {
@@ -85,16 +52,21 @@ describe('appReducer', () => {
     it('LOGOUT → login', () => {
       expect(appReducer(apiErrorState, { type: 'LOGOUT' })).toEqual({ screen: 'login' })
     })
+
+    it('CREATION_FAILED → api_error with message', () => {
+      const result = appReducer(apiErrorState, { type: 'CREATION_FAILED', message: 'Network error' })
+      expect(result).toEqual({ screen: 'api_error', message: 'Network error' })
+    })
   })
 
   describe('from picker', () => {
     const pickerState: AppState = { screen: 'picker' };
 
-    it('cancel or fail -> ready', () => {
+    it('cancel or fail → ready', () => {
       expect(appReducer(pickerState, { type: 'RETRY' })).toEqual({ screen: 'ready' });
     });
 
-    it('SPREADSHEET_SELECTED -> spreadsheet_selected_view', () => {
+    it('SPREADSHEET_SELECTED → spreadsheet_selected_view', () => {
       expect(appReducer(pickerState, { type: 'SPREADSHEET_SELECTED', spreadsheetId: 'sampleId', spreadsheetName: 'sampleName' })).toEqual({ screen: 'spreadsheet_selected_view', spreadsheetId: 'sampleId', spreadsheetName: 'sampleName' });
     });
   });
@@ -120,7 +92,8 @@ describe('appReducer', () => {
     const sampleCategories = new Map([['Art', { name: 'Art', items: [], id: 0 }]]);
 
     it('LOADING_SUCCESS → data_view with categories and warnings', () => {
-      expect(appReducer(loadingState, { type: 'LOADING_SUCCESS', categories: sampleCategories, spreadsheetId: 'sid', warnings: [] })).toEqual({ screen: 'data_view', categories: sampleCategories, spreadsheetId: 'sid', warnings: [] });
+      expect(appReducer(loadingState, { type: 'LOADING_SUCCESS', categories: sampleCategories, spreadsheetId: 'sid', spreadsheetName: 'sname', warnings: [] }))
+        .toEqual({ screen: 'data_view', categories: sampleCategories, spreadsheetId: 'sid', spreadsheetName: 'sname', warnings: [] });
     });
 
     it('LOADING_FAILED → api_error with message', () => {
@@ -133,7 +106,7 @@ describe('appReducer', () => {
   });
 
   describe('from data_view', () => {
-    const dataViewState: AppState = { screen: 'data_view', categories: new Map(), spreadsheetId: 'sid', warnings: [] };
+    const dataViewState: AppState = { screen: 'data_view', categories: new Map(), spreadsheetId: 'sid', spreadsheetName: 'sname', warnings: [] };
 
     it('LOGOUT → login', () => {
       expect(appReducer(dataViewState, { type: 'LOGOUT' })).toEqual({ screen: 'login' });
@@ -141,6 +114,11 @@ describe('appReducer', () => {
 
     it('RETRY → ready', () => {
       expect(appReducer(dataViewState, { type: 'RETRY' })).toEqual({ screen: 'ready' });
+    });
+
+    it('BACK_TO_SPREADSHEET_CONFIG → spreadsheet_selected_view with same id and name', () => {
+      expect(appReducer(dataViewState, { type: 'BACK_TO_SPREADSHEET_CONFIG' }))
+        .toEqual({ screen: 'spreadsheet_selected_view', spreadsheetId: 'sid', spreadsheetName: 'sname' });
     });
   });
 })

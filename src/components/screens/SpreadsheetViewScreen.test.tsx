@@ -65,9 +65,9 @@ describe('SpreadsheetViewScreen', () => {
     expect(onLoad).toHaveBeenCalledWith('sheet-id-123', 'Events', 50, 'Utils', 'A', 'B');
   });
 
-  it('calls onReturn when Return button is clicked', async () => {
+  it('calls onReturn when Back button is clicked', async () => {
     const { onReturn } = renderScreen();
-    await userEvent.click(screen.getByRole('button', { name: /Return/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Back/i }));
     expect(onReturn).toHaveBeenCalledOnce();
   });
 });

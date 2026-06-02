@@ -53,6 +53,25 @@ function renderSendText(sendResult: SendResult | null): string {
     return ` Sent ${sendResult.sent}.${failureText}`;
 }
 
+function ResultSummary({ result }: { result: ReportResult | DraftOnlyResult | null; label: string }) {
+    if (!result) return null;
+    if (result.kind === 'draft-only') {
+        return (
+            <p className="text-xs text-muted-foreground">
+                Created {result.success} draft{result.success !== 1 ? 's' : ''}, skipped {result.skipped}.
+                {result.errors.length > 0 && <span className="text-destructive"> Failed: {result.errors.join(', ')}.</span>}
+            </p>
+        );
+    }
+    return (
+        <p className="text-xs text-muted-foreground">
+            Created {result.draftSuccess} draft{result.draftSuccess !== 1 ? 's' : ''}, skipped {result.draftSkipped}.
+            {result.draftErrors.length > 0 && <span className="text-destructive"> Failed to draft: {result.draftErrors.join(', ')}.</span>}
+            {renderSendText(result.sendResult)}
+        </p>
+    );
+}
+
 export function EmailResultsScreen({ expandedItems, bidders, onBack }: EmailResultsScreenProps) {
     const sortedItems = [...expandedItems.values()].sort((a, b) => a.itemNumber - b.itemNumber);
 
@@ -168,12 +187,19 @@ export function EmailResultsScreen({ expandedItems, bidders, onBack }: EmailResu
         return defaultLabel;
     }
 
+    const isReadyToSend = orgName.trim() !== '' && auctionName.trim() !== '';
+
     return (
-        <div className="flex flex-col gap-4">
+        <div className="w-full flex flex-col gap-6 px-4 sm:px-6 py-6">
+            <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">{sortedItems.length} item{sortedItems.length !== 1 ? 's' : ''}</p>
+                <Button variant="outline" size="sm" onClick={onBack}>Back to Data</Button>
+            </div>
+
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Item #</TableHead>
+                        <TableHead className="w-16">Item #</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Donor</TableHead>
                         <TableHead>Winner</TableHead>
@@ -188,7 +214,7 @@ export function EmailResultsScreen({ expandedItems, bidders, onBack }: EmailResu
                                     <TableCell>{item.itemNumber}</TableCell>
                                     <TableCell>{item.name}</TableCell>
                                     <TableCell>{item.donorDisplay || item.donorName}</TableCell>
-                                    <TableCell></TableCell>
+                                    <TableCell className="text-muted-foreground">—</TableCell>
                                 </TableRow>
                             ];
                         }
@@ -203,107 +229,101 @@ export function EmailResultsScreen({ expandedItems, bidders, onBack }: EmailResu
                     })}
                 </TableBody>
             </Table>
-            <div className="flex flex-col gap-2">
-                <div className="flex flex-col gap-1">
-                    <Label htmlFor="cc-emails">CC Emails (comma-separated)</Label>
-                    <Input
-                        id="cc-emails"
-                        value={ccEmails}
-                        onChange={e => setCcEmails(e.target.value)}
-                        placeholder="cc1@example.com, cc2@example.com"
-                    />
+
+            <div className="border-t pt-6 flex flex-col gap-6">
+                <div className="flex flex-col gap-4">
+                    <p className="text-sm font-medium">Email Settings</p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="org-name">
+                                Org Name <span className="text-destructive" aria-hidden="true">*</span>
+                            </Label>
+                            <Input
+                                id="org-name"
+                                value={orgName}
+                                onChange={e => setOrgName(e.target.value)}
+                                aria-required="true"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="auction-name">
+                                Auction Name <span className="text-destructive" aria-hidden="true">*</span>
+                            </Label>
+                            <Input
+                                id="auction-name"
+                                value={auctionName}
+                                onChange={e => setAuctionName(e.target.value)}
+                                aria-required="true"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="cc-emails">CC Emails</Label>
+                            <Input
+                                id="cc-emails"
+                                value={ccEmails}
+                                onChange={e => setCcEmails(e.target.value)}
+                                placeholder="email1@example.com, email2@example.com"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="bcc-emails">BCC Emails</Label>
+                            <Input
+                                id="bcc-emails"
+                                value={bccEmails}
+                                onChange={e => setBccEmails(e.target.value)}
+                                placeholder="email1@example.com, email2@example.com"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5 sm:col-span-2">
+                            <Label htmlFor="accounting-system-name">Accounting System Name <span className="text-muted-foreground font-normal">(bidder reports)</span></Label>
+                            <Input
+                                id="accounting-system-name"
+                                value={accountingSystemName}
+                                onChange={e => setAccountingSystemName(e.target.value)}
+                                placeholder="e.g. ShulCloud"
+                            />
+                        </div>
+                    </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                    <Label htmlFor="bcc-emails">BCC Emails (comma-separated)</Label>
-                    <Input
-                        id="bcc-emails"
-                        value={bccEmails}
-                        onChange={e => setBccEmails(e.target.value)}
-                        placeholder="bcc1@example.com, bcc2@example.com"
-                    />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <Label htmlFor="org-name">Org Name</Label>
-                    <Input
-                        id="org-name"
-                        value={orgName}
-                        onChange={e => setOrgName(e.target.value)}
-                    />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <Label htmlFor="auction-name">Auction Name</Label>
-                    <Input
-                        id="auction-name"
-                        value={auctionName}
-                        onChange={e => setAuctionName(e.target.value)}
-                    />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <Label htmlFor="accounting-system-name">Accounting System Name (bidder reports)</Label>
-                    <Input
-                        id="accounting-system-name"
-                        value={accountingSystemName}
-                        onChange={e => setAccountingSystemName(e.target.value)}
-                        placeholder="e.g. ShulCloud"
-                    />
+
+                <div className="flex flex-col gap-4">
+                    {!isReadyToSend && (
+                        <p className="text-xs text-muted-foreground">
+                            Fill in Org Name and Auction Name to enable sending.
+                        </p>
+                    )}
+
+                    <div className="flex flex-col gap-2">
+                        <p className="text-sm font-medium">Donor Reports</p>
+                        <div className="flex flex-wrap gap-2">
+                            <Button onClick={handleCreateDonorDrafts} disabled={isAnyBusy || !isReadyToSend}>
+                                {donorPhaseLabel('Create Drafts')}
+                            </Button>
+                            <Button onClick={handleCreateAndSendDonorDrafts} disabled={isAnyBusy || !isReadyToSend}>
+                                {donorPhaseLabel('Create & Send')}
+                            </Button>
+                            <Button variant="outline" onClick={handleCreateDonorReminderDrafts} disabled={isAnyBusy || !isReadyToSend}>
+                                {reminderDonorPhase === 'drafting' ? 'Creating…' : 'Create Reminder Drafts'}
+                            </Button>
+                        </div>
+                        <ResultSummary result={donorResult} label="Donor reports" />
+                        <ResultSummary result={reminderDonorResult} label="Donor reminders" />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                        <p className="text-sm font-medium">Bidder Reports</p>
+                        <div className="flex flex-wrap gap-2">
+                            <Button onClick={handleCreateBidderDrafts} disabled={isAnyBusy || !isReadyToSend}>
+                                {bidderPhaseLabel('Create Drafts')}
+                            </Button>
+                            <Button onClick={handleCreateAndSendBidderDrafts} disabled={isAnyBusy || !isReadyToSend}>
+                                {bidderPhaseLabel('Create & Send')}
+                            </Button>
+                        </div>
+                        <ResultSummary result={bidderResult} label="Bidder reports" />
+                    </div>
                 </div>
             </div>
-            <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={onBack}>Back to Data</Button>
-                </div>
-                <div className="flex gap-2">
-                    <Button onClick={handleCreateDonorDrafts} disabled={isAnyBusy}>
-                        {donorPhaseLabel('Create Draft Donor Reports')}
-                    </Button>
-                    <Button onClick={handleCreateAndSendDonorDrafts} disabled={isAnyBusy}>
-                        {donorPhaseLabel('Create & Send Donor Reports')}
-                    </Button>
-                    <Button onClick={handleCreateDonorReminderDrafts} disabled={isAnyBusy}>
-                        {reminderDonorPhase === 'drafting' ? 'Creating Drafts…' : 'Create Draft Donor Reminders'}
-                    </Button>
-                </div>
-                <div className="flex gap-2">
-                    <Button onClick={handleCreateBidderDrafts} disabled={isAnyBusy}>
-                        {bidderPhaseLabel('Create Draft Bidder Reports')}
-                    </Button>
-                    <Button onClick={handleCreateAndSendBidderDrafts} disabled={isAnyBusy}>
-                        {bidderPhaseLabel('Create & Send Bidder Reports')}
-                    </Button>
-                </div>
-            </div>
-            {donorResult?.kind === 'draft-only' && (
-                <p className="text-sm">
-                    Donor reports: created {donorResult.success} draft{donorResult.success !== 1 ? 's' : ''}, skipped {donorResult.skipped} (no donor email).
-                    {donorResult.errors.length > 0 && ` Failed: ${donorResult.errors.join(', ')}.`}
-                </p>
-            )}
-            {donorResult?.kind === 'draft-and-send' && (
-                <p className="text-sm">
-                    Donor reports: created {donorResult.draftSuccess} draft{donorResult.draftSuccess !== 1 ? 's' : ''}, skipped {donorResult.draftSkipped} (no donor email).
-                    {donorResult.draftErrors.length > 0 && ` Failed to draft: ${donorResult.draftErrors.join(', ')}.`}
-                    {renderSendText(donorResult.sendResult)}
-                </p>
-            )}
-            {reminderDonorResult?.kind === 'draft-only' && (
-                <p className="text-sm">
-                    Donor reminders: created {reminderDonorResult.success} draft{reminderDonorResult.success === 1 ? '' : 's'}, skipped {reminderDonorResult.skipped} (no donor email).
-                    {reminderDonorResult.errors.length > 0 && ` Failed: ${reminderDonorResult.errors.join(', ')}.`}
-                </p>
-            )}
-            {bidderResult?.kind === 'draft-only' && (
-                <p className="text-sm">
-                    Bidder reports: created {bidderResult.success} draft{bidderResult.success !== 1 ? 's' : ''}, skipped {bidderResult.skipped} (no email or no bids).
-                    {bidderResult.errors.length > 0 && ` Failed: ${bidderResult.errors.join(', ')}.`}
-                </p>
-            )}
-            {bidderResult?.kind === 'draft-and-send' && (
-                <p className="text-sm">
-                    Bidder reports: created {bidderResult.draftSuccess} draft{bidderResult.draftSuccess !== 1 ? 's' : ''}, skipped {bidderResult.draftSkipped} (no email or no bids).
-                    {bidderResult.draftErrors.length > 0 && ` Failed to draft: ${bidderResult.draftErrors.join(', ')}.`}
-                    {renderSendText(bidderResult.sendResult)}
-                </p>
-            )}
         </div>
     );
 }
